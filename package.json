@@ -1,6 +1,7 @@
 {
   "name": "elm-mapbox",
-  "version": "4.1.0",
+  "type": "module",
+  "version": "1.0.0",
   "description": "A custom element designed for use with elm-mapbox",
   "main": "dist/elm-mapbox.cjs.js",
   "module": "dist/elm-mapbox.esm.js",
@@ -13,7 +14,7 @@
     "dev": "rollup -c -w",
     "test": "elm make --output=/dev/null src/**/*.elm && cd examples && elm make --output=/dev/null ./*.elm",
     "pretest": "npm run build",
-    "generate": "curl https://raw.githubusercontent.com/mapbox/mapbox-gl-js/v0.54.0/src/style-spec/reference/v8.json | node generate-elm.js | elm-format --stdin --output src/Mapbox/Layer.elm"
+    "generate": "curl https://raw.githubusercontent.com/mapbox/mapbox-gl-js/v3.10.0/src/style-spec/reference/v8.json | node generate-elm.js | elm-format --stdin --output src/Mapbox/Layer.elm"
   },
   "repository": {
     "type": "git",
@@ -31,17 +32,16 @@
   },
   "homepage": "https://github.com/gampleman/elm-mapbox#readme",
   "devDependencies": {
-    "elm": "^0.19.0-bugfix6",
-    "elm-format": "^0.8.1",
-    "elm-test": "^0.19.0",
-    "prettier": "^2.0.2",
-    "rollup": "^2.6.0",
-    "rollup-plugin-buble": "^0.19.2",
+    "elm": "^0.19.1-6",
+    "elm-format": "^0.8.7",
+    "elm-test": "^0.19.1-revision15",
+    "prettier": "^3.5.3",
+    "rollup": "^4.37.0",
     "rollup-plugin-commonjs": "^10.0.0",
     "rollup-plugin-node-resolve": "^5.0.1"
   },
   "dependencies": {
-    "mapbox-gl": "^1.0.0"
+    "mapbox-gl": "^3.10.0"
   },
   "prettier": {
     "tabWidth": 2

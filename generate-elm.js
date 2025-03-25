@@ -9,36 +9,44 @@ function generateProperties(spec) {
     docs[layerType] = [];
     codes[layerType] = [];
     Object.entries(spec[l]).forEach(([name, prop]) => {
-      if (name == "visibility") return "";
-      if (prop.type === "enum") {
-        enums[name] = Object.keys(prop.values).join(" | ");
+      if (name == "visibility") return;
+      if (prop["property-type"] === "constant") {
+        console.error(`WARNING: Skipping constant Layout property ${name}`)
+      } else {
+        if (prop.type === "enum") {
+          enums[name] = Object.keys(prop.values).join(" | ");
+        }
+        codes[layerType].push(
+          generateElmProperty(name, prop, layerType, "Layout")
+        );
+        docs[layerType].push(camelCase(name));
       }
-      codes[layerType].push(
-        generateElmProperty(name, prop, layerType, "Layout")
-      );
-      docs[layerType].push(camelCase(name));
     });
   });
   paints.forEach(l => {
     const layerType = titleCase(l.split("_")[1]);
     Object.entries(spec[l]).forEach(([name, prop]) => {
-      if (name == "visibility") return "";
-      if (prop.type === "enum") {
-        enums[name] = Object.keys(prop.values).join(" | ");
+      if (name == "visibility") return;
+      if (prop["property-type"] === "constant") {
+        console.error(`WARNING: Skipping constant Paint property ${name}`)
+      } else {
+        if (prop.type === "enum") {
+          enums[name] = Object.keys(prop.values).join(" | ");
+        }
+        codes[layerType].push(
+          generateElmProperty(name, prop, layerType, "Paint")
+        );
+        docs[layerType].push(camelCase(name));
       }
-      codes[layerType].push(
-        generateElmProperty(name, prop, layerType, "Paint")
-      );
-      docs[layerType].push(camelCase(name));
     });
   });
   Object.values(docs).forEach(d => d.sort());
   Object.values(codes).forEach(d => d.sort());
   return `
 module Mapbox.Layer exposing (
-  Layer, SourceId, Background, Fill, Symbol, Line, Raster, Circle, FillExtrusion, Heatmap, Hillshade, LayerAttr,
+  Layer, SourceId, Background, Clip, Fill, Symbol, Line, Raster, Circle, FillExtrusion, Heatmap, Hillshade, Model, RasterParticle, Sky, LayerAttr,
   encode,
-  background, fill, symbol, line, raster, circle, fillExtrusion, heatmap, hillshade,
+  background, clip, fill, symbol, line, raster, circle, fillExtrusion, heatmap, hillshade, model, rasterParticle, sky,
   metadata, sourceLayer, minzoom, maxzoom, filter, visible,
   ${Object.values(docs)
     .map(d => d.join(", "))
@@ -71,8 +79,8 @@ ${Object.keys(docs)
 
 ### Layer Types
 
-@docs background, fill, symbol, line, raster, circle, fillExtrusion, heatmap, hillshade
-@docs Background, Fill, Symbol, Line, Raster, Circle, FillExtrusion, Heatmap, Hillshade
+@docs background, clip, fill, symbol, line, raster, circle, fillExtrusion, heatmap, hillshade, model, rasterParticle, sky
+@docs Background, Clip, Fill, Symbol, Line, Raster, Circle, FillExtrusion, Heatmap, Hillshade, Model, RasterParticle, Sky
 
 ### General Attributes
 
@@ -102,6 +110,10 @@ type alias SourceId = String
 {-| -}
 type Background
     = BackgroundLayer
+
+{-| -}
+type Clip
+    = ClipLayer
 
 {-| -}
 type Fill
@@ -135,12 +147,25 @@ type Heatmap
 type Hillshade
     = HillshadeLayer
 
+{-| -}
+type Model
+    = ModelLayer
+
+{-| -}
+type RasterParticle
+    = RasterParticleLayer
+
+{-| -}
+type Sky
+    = SkyLayer
+
 {-| Turns a layer into JSON -}
 encode : Layer -> Value
 encode (Layer value) =
     value
 
 
+layerImpl : String -> String -> String -> List (LayerAttr tipe) -> Layer
 layerImpl tipe id source attrs =
     [ ( "type", Encode.string tipe )
     , ( "id", Encode.string id )
@@ -151,6 +176,7 @@ layerImpl tipe id source attrs =
         |> Layer
 
 
+encodeAttrs : List (LayerAttr tipe) -> List ( String, Value )
 encodeAttrs attrs =
     let
         { top, layout, paint } =
@@ -180,6 +206,11 @@ background id attrs =
         ++ encodeAttrs attrs
         |> Encode.object
         |> Layer
+
+{-| Clip -}
+clip : String -> SourceId -> List (LayerAttr Clip) -> Layer
+clip =
+    layerImpl "clip"
 
 {-| A filled polygon with an optional stroked border. -}
 fill : String -> SourceId -> List (LayerAttr Fill) -> Layer
@@ -220,6 +251,21 @@ heatmap =
 hillshade : String -> SourceId -> List (LayerAttr Hillshade) -> Layer
 hillshade =
     layerImpl "hillshade"
+
+{-| Model -}
+model : String -> SourceId -> List (LayerAttr Model) -> Layer
+model =
+    layerImpl "model"
+
+{-| RasterParticle -}
+rasterParticle : String -> SourceId -> List (LayerAttr RasterParticle) -> Layer
+rasterParticle =
+    layerImpl "rasterParticle"
+
+{-| Sky -}
+sky : String -> SourceId -> List (LayerAttr RasterParticle) -> Layer
+sky =
+    layerImpl "sky"
 
 {-| -}
 type LayerAttr tipe
@@ -293,8 +339,9 @@ function requires(req) {
 
 function generateElmProperty(name, prop, layerType, position) {
   if (name == "visibility") return "";
-  if (prop["property-type"] === "constant")
+  if (prop["property-type"] === "constant") {
     throw "Constant property type not supported";
+  }
   const elmName = camelCase(name);
   const exprKind =
     prop["sdk-support"] &&
@@ -362,7 +409,7 @@ function docify(str, name) {
     )
 }
 
-const enums = `map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source`.split(', ');
+const enums = `map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source, hdRoadBase, hdRoadMarkup, sea, ground, pixels, meters, terrain, flat, gradient, atmosphere, common3d, locationIndicator`.split(', ');
 
 function getElmType({ type, value, values }, name) {
   switch (type) {
@@ -391,7 +438,8 @@ function getElmType({ type, value, values }, name) {
           }
           throw `Unknown enum value ${val} for property ${name}`;
       }).join(', ') + '}';
-
+    case "resolvedImage":
+      return "String"
   }
   throw `Unknown type ${type} for ${name}, ${value}, ${values && Object.keys(values)}`;
 }
