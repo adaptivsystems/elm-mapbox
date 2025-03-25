@@ -1,9 +1,11 @@
+import process from "node:process";
+
 function generateProperties(spec) {
   const layouts = spec.layout;
   const paints = spec.paint;
-  var codes = {};
-  var docs = {};
-  var enums = {};
+  const codes = {};
+  const docs = {};
+
   layouts.forEach(l => {
     const layerType = titleCase(l.split("_")[1]);
     docs[layerType] = [];
@@ -13,9 +15,6 @@ function generateProperties(spec) {
       if (prop["property-type"] === "constant") {
         console.error(`WARNING: Skipping constant Layout property ${name}`)
       } else {
-        if (prop.type === "enum") {
-          enums[name] = Object.keys(prop.values).join(" | ");
-        }
         codes[layerType].push(
           generateElmProperty(name, prop, layerType, "Layout")
         );
@@ -30,9 +29,6 @@ function generateProperties(spec) {
       if (prop["property-type"] === "constant") {
         console.error(`WARNING: Skipping constant Paint property ${name}`)
       } else {
-        if (prop.type === "enum") {
-          enums[name] = Object.keys(prop.values).join(" | ");
-        }
         codes[layerType].push(
           generateElmProperty(name, prop, layerType, "Paint")
         );
@@ -314,8 +310,8 @@ ${Object.entries(codes)
 `;
 }
 
-function codeSnippet(name, type) {
-  return "`" + camelCase(name, type) + "`";
+function codeSnippet(name) {
+  return "`" + camelCase(name) + "`";
 }
 
 function requires(req) {
@@ -365,7 +361,7 @@ function generateElmProperty(name, prop, layerType, position) {
     valueHelp = Object.entries(prop.values)
       .map(
         ([value, { doc }]) =>
-          `\n- ${codeSnippet(value, exprType)}: ${docify(doc)}`
+          `\n- ${codeSnippet(value)}: ${docify(doc)}`
       )
       .join("");
   }
@@ -380,7 +376,6 @@ ${elmName} : Expression ${exprKind} ${exprType} -> LayerAttr ${layerType}
 ${elmName} =
     Expression.encode >> ${position} "${name}"`;
 }
-
 
 
 function docify(str, name) {
@@ -405,7 +400,7 @@ function docify(str, name) {
   ///`(\w+\-.+?)`/g
   return str.replace(
       /`(.+?)`/g,
-      (str, match) => "`" + camelCase(match) + "`"
+      (_str, match) => "`" + camelCase(match) + "`"
     )
 }
 
@@ -453,7 +448,7 @@ function titleCase(str) {
     .replace(/\s/, "");
 }
 
-function camelCase(str, type) {
+function camelCase(str) {
   if (str === 'round') {
     return 'rounded';
   } else if (str === "rgba(0, 0, 0, 0)") {
@@ -462,33 +457,16 @@ function camelCase(str, type) {
     return '""';
 }
   return str
-    .replace(/(?:^\w|[A-Z]|\b\w|\-\w)/g, function(letter, index) {
+    .replace(/(?:^\w|[A-Z]|\b\w|-\w)/g, function(letter, index) {
       return index == 0 ? letter.toLowerCase() : letter.toUpperCase();
     })
-    .replace(/(?:\s|\-)+/g, "");
-}
-
-function makeSignatures(name, constants) {
-  return `{-| -}
-type ${name} = ${name}
-
-  ${constants
-    .split(" | ")
-    .map(
-      c => `
-{-| -}
-${camelCase(name + " " + c)} : Expression exprType ${name}
-${camelCase(name + " " + c)} = Expression (Json.Encode.string "${c}")
-`
-    )
-    .join("\n")}`;
+    .replace(/(?:\s|-)+/g, "");
 }
 
 /// --- NODEJS STUFF
 
-var stdin = process.stdin,
-  stdout = process.stdout,
-  inputChunks = [];
+const { stdin, stdout } = process;
+const inputChunks = [];
 
 stdin.resume();
 stdin.setEncoding("utf8");
@@ -498,9 +476,10 @@ stdin.on("data", function(chunk) {
 });
 
 stdin.on("end", function() {
-  var inputJSON = inputChunks.join(""),
-    parsedData = JSON.parse(inputJSON),
-    output = generateProperties(parsedData);
+  const inputJSON = inputChunks.join("")
+  const parsedData = JSON.parse(inputJSON);
+  const output = generateProperties(parsedData);
+
   stdout.write(output);
   stdout.write("\n");
 });
