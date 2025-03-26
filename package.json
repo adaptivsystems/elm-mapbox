@@ -3,9 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "description": "A custom element designed for use with elm-mapbox",
-  "main": "dist/elm-mapbox.cjs",
   "module": "dist/elm-mapbox.mjs",
-  "browser": "dist/elm-mapbox.umd.js",
   "exports": {
     ".": "dist/elm-mapbox.mjs"
   },
@@ -35,13 +33,13 @@
   },
   "homepage": "https://github.com/gampleman/elm-mapbox#readme",
   "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.2",
     "elm": "^0.19.1-6",
     "elm-format": "^0.8.7",
     "elm-test": "^0.19.1-revision15",
     "prettier": "^3.5.3",
     "rollup": "^4.37.0",
-    "rollup-plugin-commonjs": "^10.0.0",
-    "rollup-plugin-node-resolve": "^5.0.1"
+    "tslib": "^2.8.1"
   },
   "dependencies": {
     "mapbox-gl": "^3.10.0"

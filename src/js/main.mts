@@ -1,13 +1,32 @@
-import mapboxgl from "mapbox-gl";
+import mapboxgl, {
+  AnimationOptions,
+  CameraOptions,
+  EasingOptions,
+  FeatureSelector,
+  GeoJSONFeature,
+  LngLatBoundsLike,
+  LngLatLike,
+  StyleSpecification,
+  TargetFeature,
+} from "mapbox-gl";
 
-var commandRegistry = {};
+type Command = (map: mapboxgl.Map) => void;
+type FeatureState = {
+  [_: string]: unknown;
+};
+type Options = {
+  onMount: (map: mapboxgl.Map, customElement: HTMLElement) => void;
+  token?: string;
+};
 
-export function registerCustomElement(settings) {
+const commandRegistry: Record<string, Command[]> = {};
+
+export function registerCustomElement(settings: Options) {
   const options = Object.assign(
     {
-      onMount() {}
+      onMount() {},
     },
-    settings
+    settings,
   );
   if (options.token) {
     mapboxgl.accessToken = options.token;
@@ -15,19 +34,41 @@ export function registerCustomElement(settings) {
   window.customElements.define(
     "elm-mapbox-map",
     class MapboxMap extends HTMLElement {
+      private _bearing?: number;
+      private _center?: LngLatLike;
+      private _eventListenerMap: Map<unknown, unknown>;
+      private _eventRegistrationQueue: Record<string, unknown>;
+      private _featureState?: [
+        FeatureSelector | GeoJSONFeature | TargetFeature,
+        FeatureState,
+      ][];
+      private _map?: mapboxgl.Map;
+      private _maxBounds?: LngLatBoundsLike;
+      private _maxZoom?: number;
+      private _minZoom?: number;
+      private _pitch?: number;
+      private _refreshExpiredTiles: boolean;
+      private _renderWorldCopies: boolean;
+      private _style?: StyleSpecification | string;
+      private _zoom?: number;
+      interactive: boolean;
+      logoPosition?: mapboxgl.ControlPosition;
+      token: undefined; // NEVER SET
+
       constructor() {
         super();
+        this._eventListenerMap = new Map();
+        this._eventRegistrationQueue = {};
         this._refreshExpiredTiles = true;
         this._renderWorldCopies = true;
         this.interactive = true;
-        this._eventRegistrationQueue = {};
-        this._eventListenerMap = new Map();
       }
 
-      get mapboxStyle() {
+      get mapboxStyle(): typeof this._style {
         return this._style;
       }
-      set mapboxStyle(value) {
+
+      set mapboxStyle(value: StyleSpecification | string) {
         if (this._map) this._map.setStyle(value);
         this._style = value;
       }
@@ -52,10 +93,10 @@ export function registerCustomElement(settings) {
         return this._map;
       }
 
-      get maxBounds() {
+      get maxBounds(): LngLatBoundsLike | undefined {
         return this._maxBounds;
       }
-      set maxBounds(value) {
+      set maxBounds(value: LngLatBoundsLike) {
         if (this._map) this._map.setMaxBounds(value);
         this._maxBounds = value;
       }
@@ -68,81 +109,89 @@ export function registerCustomElement(settings) {
         this._renderWorldCopies = value;
       }
 
-      get center() {
+      get center(): LngLatLike | undefined {
         return this._center;
       }
-      set center(value) {
+      set center(value: LngLatLike) {
         if (this._map) this._map.setCenter(value);
         this._center = value;
       }
 
-      get zoom() {
+      get zoom(): number | undefined {
         return this._zoom;
       }
-      set zoom(value) {
+      set zoom(value: number) {
         if (this._map) this._map.setZoom(value);
         this._zoom = value;
       }
 
-      get bearing() {
+      get bearing(): number | undefined {
         return this._bearing;
       }
-      set bearing(value) {
+      set bearing(value: number) {
         if (this._map) this._map.setBearing(value);
         this._bearing = value;
       }
 
-      get pitch() {
+      get pitch(): number | undefined {
         return this._pitch;
       }
-      set pitch(value) {
+      set pitch(value: number) {
         if (this._map) this._map.setPitch(value);
         this._pitch = value;
       }
 
-      get featureState() {
+      get featureState(): typeof this._featureState {
         return this._featureState;
       }
-      set featureState(value) {
+      set featureState(value: NonNullable<typeof this._featureState>) {
         // TODO: Clean this up
-        function makeId({ id, source, sourceLayer }) {
+        function makeId({
+          id,
+          source,
+          sourceLayer,
+        }: {
+          id: string;
+          source: string;
+          sourceLayer: string;
+        }) {
           return `${id}::${source}::${sourceLayer}`;
         }
-        if (this._map) {
+        if (this._map && this._featureState) {
           const map = new Map(
             this._featureState.map(([feature, state]) => [
               makeId(feature),
-              { feature, state }
-            ])
+              { feature, state },
+            ]),
           );
           value.forEach(([feature, state]) => {
             const id = makeId(feature);
             if (map.has(id)) {
-              const prevValue = map.get(id).state;
+              const prevValue = map.get(id)!.state;
               const keys = Object.keys(prevValue);
-              let newValue = {};
-              keys.forEach(k => {
+              const newValue: Record<string, unknown> = {};
+              keys.forEach((k) => {
                 if (state[k] === undefined) {
                   newValue[k] = undefined;
                 }
               });
-              this._map.setFeatureState(
+              this._map!.setFeatureState(
                 feature,
-                Object.assign(newValue, state)
+                Object.assign(newValue, state),
               );
             } else {
-              this._map.setFeatureState(feature, state);
+              this._map!.setFeatureState(feature, state);
             }
             map.delete(id);
           });
 
           map.forEach(({ feature, state }) => {
             const keys = Object.keys(state);
-            let newValue = {};
-            keys.forEach(k => {
+            const newValue: Record<string, unknown> = {};
+            keys.forEach((k) => {
               newValue[k] = undefined;
             });
-            this._map.setFeatureState(feature, newValue);
+            this._map!.setFeatureState(feature, newValue);
           });
         }
 
@@ -151,33 +200,30 @@ export function registerCustomElement(settings) {
 
       addEventListener(type, fn, ...args) {
         if (this._map) {
-          const wrapped = e =>
+          const wrapped = (e) =>
             fn(
               new Proxy(e, {
                 has: (obj, prop) =>
-                    prop in obj ||
-                    (prop === "features" && obj.point) ||
-                    (prop === "perPointFeatures" && obj.points) ||
-                    (
-                      (prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
-                      prop in this._map &&
-                      typeof this._map[prop] === "function"
-                    )
-                ,
+                  prop in obj ||
+                  (prop === "features" && obj.point) ||
+                  (prop === "perPointFeatures" && obj.points) ||
+                  ((prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
+                    prop in this._map &&
+                    typeof this._map[prop] === "function"),
                 get: (obj, prop) => {
                   if (prop in obj) {
                     return obj[prop];
                   } else if (prop === "features" && obj.point) {
                     return this._map.queryRenderedFeatures(obj.point, {
                       layers: this.eventFeaturesLayers,
-                      filter: this.eventFeaturesFilter
+                      filter: this.eventFeaturesFilter,
                     });
                   } else if (prop === "perPointFeatures" && obj.points) {
-                    return obj.points.map(point =>
+                    return obj.points.map((point) =>
                       this._map.queryRenderedFeatures(point, {
                         layers: this.eventFeaturesLayers,
-                        filter: this.eventFeaturesFilter
-                      })
+                        filter: this.eventFeaturesFilter,
+                      }),
                     );
                   } else if (
                     (prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
@@ -191,8 +237,8 @@ export function registerCustomElement(settings) {
                     }
                   }
                   return undefined;
-                }
-              })
+                },
+              }),
             );
           this._eventListenerMap.set(fn, wrapped);
           return this._map.on(type, wrapped);
@@ -219,7 +265,7 @@ export function registerCustomElement(settings) {
       }
 
       _createMapInstance() {
-        let mapOptions = {
+        const mapOptions: mapboxgl.MapOptions = {
           container: this,
           style: this._style,
           minZoom: this._minZoom || 0,
@@ -229,7 +275,7 @@ export function registerCustomElement(settings) {
           logoPosition: this.logoPosition || "bottom-left",
           refreshExpiredTiles: this._refreshExpiredTiles,
           maxBounds: this._maxBounds,
-          renderWorldCopies: this._renderWorldCopies
+          renderWorldCopies: this._renderWorldCopies,
         };
         if (this._center) {
           mapOptions.center = this._center;
@@ -247,18 +293,18 @@ export function registerCustomElement(settings) {
 
         Object.entries(this._eventRegistrationQueue).forEach(
           ([type, listeners]) => {
-            listeners.forEach(listener => {
+            listeners.forEach((listener) => {
               this.addEventListener(type, listener);
             });
-          }
+          },
         );
         this._eventRegistrationQueue = {};
         options.onMount(this._map, this);
         if (commandRegistry[this.id]) {
           this._map.on("load", () => {
-            var cmd;
+            let cmd: undefined | ((map: mapboxgl.Map) => void);
             while ((cmd = commandRegistry[this.id].shift())) {
-              cmd(this._map);
+              cmd(this._map!);
             }
           });
         }
@@ -289,55 +335,81 @@ export function registerCustomElement(settings) {
 
       _upgradeProperty(prop) {
         if (this.hasOwnProperty(prop)) {
-          let value = this[prop];
+          const value = this[prop];
           delete this[prop];
           this[prop] = value;
         }
       }
 
       disconnectedCallback() {
-        this._map.remove();
+        this._map?.remove();
         delete this._map;
       }
-    }
+    },
   );
 }
 
-export function registerPorts(elmApp, settings = {}) {
-  const options = Object.assign(
+type ElmApp = {
+  ports?: Record<string, Port>;
+};
+type PortCommand = { target: string; options: EasingOptions } & (
+  | { command: "resize" }
+  | { command: "fitBounds"; bounds: LngLatBoundsLike }
+);
+type Port = {
+  send?: (data: unknown) => void;
+  subscribe?: (callback: (command: PortCommand) => unknown) => void;
+};
+type RegisterPortsOptions = {
+  outgoingPort: string;
+  incomingPort: string;
+  easingFunctions: Record<string, (t: number) => number>;
+};
+
+export function registerPorts(
+  elmApp: ElmApp,
+  settings: Partial<RegisterPortsOptions> = {},
+) {
+  const options: RegisterPortsOptions = Object.assign(
     {
       outgoingPort: "elmMapboxOutgoing",
       incomingPort: "elmMapboxIncoming",
       easingFunctions: {
-        linear: t => t
-      }
+        linear: (t: number) => t,
+      },
     },
-    settings
+    settings,
   );
 
   if (elmApp.ports && elmApp.ports[options.outgoingPort]) {
-    function processOptions(opts) {
+    function processOptions(opts: EasingOptions) {
+      /* AJD: Looks like opt.easing has changed to "always a function".
+       * Not sure if we can still do the logic below!
       if (opts.easing) {
         return Object.assign({}, opts, {
-          easing: options.easingFunctions[opts.easing]
+          easing: options.easingFunctions[opts.easing],
         });
       }
+      */
       return opts;
     }
 
-    function waitForMap(target, cb) {
+    function waitForMap(target: string, cb: (map: mapboxgl.Map) => void) {
       const el = document.getElementById(target);
-      if (el) {
-        cb(el.map);
+      // Unable to access actual MapboxMap type from this scope
+      type MapboxMap = HTMLElement & { _map: mapboxgl.Map };
+      if (el && (el as MapboxMap)._map) {
+        // AJD: Fixed from cb(el.map)
+        cb((el as MapboxMap)._map);
       } else {
-        var queue = commandRegistry[target];
+        let queue = commandRegistry[target];
         if (!queue) queue = commandRegistry[target] = [];
         queue.push(cb);
       }
     }
 
-    elmApp.ports[options.outgoingPort].subscribe(event => {
-      waitForMap(event.target, function(map) {
+    elmApp.ports[options.outgoingPort].subscribe!((event) => {
+      waitForMap(event.target, function (map) {
         switch (event.command) {
           case "resize":
             return map.resize();
@@ -382,7 +454,7 @@ export function registerPorts(elmApp, settings = {}) {
             return elmApp.ports[options.incomingPort].send({
               type: "getBounds",
               id: event.requestId,
-              bounds: map.getBounds().toArray()
+              bounds: map.getBounds().toArray(),
             });
 
           case "queryRenderedFeatures":
@@ -393,8 +465,8 @@ export function registerPorts(elmApp, settings = {}) {
                 ? map.queryRenderedFeatures(processOptions(event.options))
                 : map.queryRenderedFeatures(
                     event.query,
-                    processOptions(event.options)
-                  )
+                    processOptions(event.options),
+                  ),
             });
         }
       });
@@ -403,7 +475,7 @@ export function registerPorts(elmApp, settings = {}) {
     console.warn(
       `Expected Elm App to expose ${
         options.outgoingPort
-      } port. Please add https://github.com/gampleman/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`
+      } port. Please add https://github.com/gampleman/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
     );
   }
 
