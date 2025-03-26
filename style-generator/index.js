@@ -44,23 +44,23 @@ customElements.define(
     }
 
     get readonly() {
-        return this._readonly;
+      return this._readonly;
     }
 
     set readonly(value) {
-        this._readonly = value;
-        if (!this._editor) return;
-        this._editor.setOption('readonly', value);
+      this._readonly = value;
+      if (!this._editor) return;
+      this._editor.setOption("readonly", value);
     }
 
     get mode() {
-        return this._mode;
+      return this._mode;
     }
 
     set mode(value) {
-        this._mode = value;
-        if (!this._editor) return;
-        this._editor.setOption('mode', value);
+      this._mode = value;
+      if (!this._editor) return;
+      this._editor.setOption("mode", value);
     }
 
     connectedCallback() {
@@ -70,27 +70,28 @@ customElements.define(
         lineNumbers: true,
         value: this._editorValue,
         readOnly: this._readonly,
-        lineWrapping: true
+        lineWrapping: true,
       });
 
       this._editor.on("changes", () => {
         this._editorValue = this._editor.getValue();
-        console.log("changes", this._editorValue)
-        this.dispatchEvent(new CustomEvent("editorChanged", {detail: this._editorValue}));
+        console.log("changes", this._editorValue);
+        this.dispatchEvent(
+          new CustomEvent("editorChanged", { detail: this._editorValue }),
+        );
       });
 
-      const {width, height} = this.getBoundingClientRect()
+      const { width, height } = this.getBoundingClientRect();
       this._editor.setSize(width, height);
     }
-  }
+  },
 );
 
-app.ports.requestStyleUpgrade.subscribe(style => {
-    try {
-        const migrated = deref(migrate(JSON.parse(style)));
-        app.ports.styleUpgradeComplete.send({type: 'Ok', result: migrated});
-    } catch(error) {
-        app.ports.styleUpgradeComplete.send({type: 'Err', error});
-    }
-
+app.ports.requestStyleUpgrade.subscribe((style) => {
+  try {
+    const migrated = deref(migrate(JSON.parse(style)));
+    app.ports.styleUpgradeComplete.send({ type: "Ok", result: migrated });
+  } catch (error) {
+    app.ports.styleUpgradeComplete.send({ type: "Err", error });
+  }
 });
