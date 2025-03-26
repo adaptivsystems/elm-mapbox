@@ -1,43 +1,44 @@
 import process from "node:process";
 
+/* eslint-disable */
 function generateProperties(spec) {
   const layouts = spec.layout;
   const paints = spec.paint;
   const codes = {};
   const docs = {};
 
-  layouts.forEach(l => {
+  layouts.forEach((l) => {
     const layerType = titleCase(l.split("_")[1]);
     docs[layerType] = [];
     codes[layerType] = [];
     Object.entries(spec[l]).forEach(([name, prop]) => {
       if (name == "visibility") return;
       if (prop["property-type"] === "constant") {
-        console.error(`WARNING: Skipping constant Layout property ${name}`)
+        console.error(`WARNING: Skipping constant Layout property ${name}`);
       } else {
         codes[layerType].push(
-          generateElmProperty(name, prop, layerType, "Layout")
+          generateElmProperty(name, prop, layerType, "Layout"),
         );
         docs[layerType].push(camelCase(name));
       }
     });
   });
-  paints.forEach(l => {
+  paints.forEach((l) => {
     const layerType = titleCase(l.split("_")[1]);
     Object.entries(spec[l]).forEach(([name, prop]) => {
       if (name == "visibility") return;
       if (prop["property-type"] === "constant") {
-        console.error(`WARNING: Skipping constant Paint property ${name}`)
+        console.error(`WARNING: Skipping constant Paint property ${name}`);
       } else {
         codes[layerType].push(
-          generateElmProperty(name, prop, layerType, "Paint")
+          generateElmProperty(name, prop, layerType, "Paint"),
         );
         docs[layerType].push(camelCase(name));
       }
     });
   });
-  Object.values(docs).forEach(d => d.sort());
-  Object.values(codes).forEach(d => d.sort());
+  Object.values(docs).forEach((d) => d.sort());
+  Object.values(codes).forEach((d) => d.sort());
   return `
 module Mapbox.Layer exposing (
   Layer, SourceId, Background, Clip, Fill, Symbol, Line, Raster, Circle, FillExtrusion, Heatmap, Hillshade, Model, RasterParticle, Sky, LayerAttr,
@@ -45,7 +46,7 @@ module Mapbox.Layer exposing (
   background, clip, fill, symbol, line, raster, circle, fillExtrusion, heatmap, hillshade, model, rasterParticle, sky,
   metadata, sourceLayer, minzoom, maxzoom, filter, visible,
   ${Object.values(docs)
-    .map(d => d.join(", "))
+    .map((d) => d.join(", "))
     .join(",\n  ")})
 {-|
 Layers specify what is actually rendered on the map and are rendered in order.
@@ -61,11 +62,11 @@ Paint properties are applied later in the rendering process. Changes to a paint 
 #### Skip to:
 
 ${Object.keys(docs)
-    .map(
-      (section) =>
-        `- [${section} Attributes](#${section.toLowerCase()}-attributes)`
-    )
-    .join("\n")}
+  .map(
+    (section) =>
+      `- [${section} Attributes](#${section.toLowerCase()}-attributes)`,
+  )
+  .join("\n")}
 
 
 
@@ -84,11 +85,11 @@ ${Object.keys(docs)
 @docs metadata, sourceLayer, minzoom, maxzoom, filter, visible
 
 ${Object.entries(docs)
-    .map(
-      ([section, docs]) =>
-        `### ${section} Attributes\n\n@docs ${docs.join(", ")}`
-    )
-    .join("\n\n")}
+  .map(
+    ([section, docs]) =>
+      `### ${section} Attributes\n\n@docs ${docs.join(", ")}`,
+  )
+  .join("\n\n")}
 -}
 
 import Array exposing (Array)
@@ -305,8 +306,8 @@ visible isVisible =
     Layout "visibility" <| Expression.encode <| Expression.str <| if isVisible then "visible" else "none"
 
 ${Object.entries(codes)
-    .map(([section, codes]) => `-- ${section}\n\n${codes.join("\n")}`)
-    .join("\n\n")}
+  .map(([section, codes]) => `-- ${section}\n\n${codes.join("\n")}`)
+  .join("\n\n")}
 `;
 }
 
@@ -324,9 +325,12 @@ function requires(req) {
   } else {
     const [name, value] = Object.entries(req)[0];
     if (Array.isArray(value)) {
-      return `Requires ${codeSnippet(name)} to be ${value.slice(1).reduce(
-        (prev, curr) => prev + ", or " + codeSnippet(curr), codeSnippet(value[0])
-      )}.`;
+      return `Requires ${codeSnippet(name)} to be ${value
+        .slice(1)
+        .reduce(
+          (prev, curr) => prev + ", or " + codeSnippet(curr),
+          codeSnippet(value[0]),
+        )}.`;
     } else {
       return `Requires ${codeSnippet(name)} to be \`${value}\`.`;
     }
@@ -359,16 +363,13 @@ function generateElmProperty(name, prop, layerType, position) {
   let valueHelp = "";
   if (prop.values) {
     valueHelp = Object.entries(prop.values)
-      .map(
-        ([value, { doc }]) =>
-          `\n- ${codeSnippet(value)}: ${docify(doc)}`
-      )
+      .map(([value, { doc }]) => `\n- ${codeSnippet(value)}: ${docify(doc)}`)
       .join("");
   }
   return `
 {-| ${docify(prop.doc, elmName)} ${position} property. ${bounds}${
     prop.units ? `\nUnits in ${prop.units}. ` : ""
-  }${prop.default !== undefined && elmName !== 'heatmapColor' && elmName !== 'textFont' ? "Defaults to `" + camelCase(prop.default.toString(), exprType) + "`. " : ""}${
+  }${prop.default !== undefined && elmName !== "heatmapColor" && elmName !== "textFont" ? "Defaults to `" + camelCase(prop.default.toString(), exprType) + "`. " : ""}${
     prop.requires ? prop.requires.map(requires).join(" ") : ""
   }${valueHelp}
 -}
@@ -376,7 +377,6 @@ ${elmName} : Expression ${exprKind} ${exprType} -> LayerAttr ${layerType}
 ${elmName} =
     Expression.encode >> ${position} "${name}"`;
 }
-
 
 function docify(str, name) {
   switch (name) {
@@ -393,18 +393,18 @@ function docify(str, name) {
         , (0.3, rgba 0 255 255 1)
         , (0.5, rgba 0 255 0 1)
         , (0.7, rgba 255 255 0 1)
-        , (1.0, rgba 255 0 0 1)]`
+        , (1.0, rgba 255 0 0 1)]`;
     case "textField":
       return `Value to use for a text label.`;
   }
   ///`(\w+\-.+?)`/g
-  return str.replace(
-      /`(.+?)`/g,
-      (_str, match) => "`" + camelCase(match) + "`"
-    )
+  return str.replace(/`(.+?)`/g, (_str, match) => "`" + camelCase(match) + "`");
 }
 
-const enums = `map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source, hdRoadBase, hdRoadMarkup, sea, ground, pixels, meters, terrain, flat, gradient, atmosphere, common3d, locationIndicator`.split(', ');
+const enums =
+  `map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source, hdRoadBase, hdRoadMarkup, sea, ground, pixels, meters, terrain, flat, gradient, atmosphere, common3d, locationIndicator`.split(
+    ", ",
+  );
 
 function getElmType({ type, value, values }, name) {
   switch (type) {
@@ -426,15 +426,21 @@ function getElmType({ type, value, values }, name) {
     case "formatted":
       return "FormattedText";
     case "enum":
-      return '{' + Object.keys(values).map(val => {
-          val = camelCase(val);
-          if (enums.includes(val)) {
+      return (
+        "{" +
+        Object.keys(values)
+          .map((val) => {
+            val = camelCase(val);
+            if (enums.includes(val)) {
               return `${val} : Supported`;
-          }
-          throw `Unknown enum value ${val} for property ${name}`;
-      }).join(', ') + '}';
+            }
+            throw `Unknown enum value ${val} for property ${name}`;
+          })
+          .join(", ") +
+        "}"
+      );
     case "resolvedImage":
-      return "String"
+      return "String";
   }
   throw `Unknown type ${type} for ${name}, ${value}, ${values && Object.keys(values)}`;
 }
@@ -442,22 +448,22 @@ function getElmType({ type, value, values }, name) {
 function titleCase(str) {
   return str
     .replace(/\-/, " ")
-    .replace(/\w\S*/g, function(txt) {
+    .replace(/\w\S*/g, function (txt) {
       return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
     })
     .replace(/\s/, "");
 }
 
 function camelCase(str) {
-  if (str === 'round') {
-    return 'rounded';
+  if (str === "round") {
+    return "rounded";
   } else if (str === "rgba(0, 0, 0, 0)") {
-    return "rgba 0 0 0 0"
-} else if (str === '') {
+    return "rgba 0 0 0 0";
+  } else if (str === "") {
     return '""';
-}
+  }
   return str
-    .replace(/(?:^\w|[A-Z]|\b\w|-\w)/g, function(letter, index) {
+    .replace(/(?:^\w|[A-Z]|\b\w|-\w)/g, function (letter, index) {
       return index == 0 ? letter.toLowerCase() : letter.toUpperCase();
     })
     .replace(/(?:\s|-)+/g, "");
@@ -471,12 +477,12 @@ const inputChunks = [];
 stdin.resume();
 stdin.setEncoding("utf8");
 
-stdin.on("data", function(chunk) {
+stdin.on("data", function (chunk) {
   inputChunks.push(chunk);
 });
 
-stdin.on("end", function() {
-  const inputJSON = inputChunks.join("")
+stdin.on("end", function () {
+  const inputJSON = inputChunks.join("");
   const parsedData = JSON.parse(inputJSON);
   const output = generateProperties(parsedData);
 

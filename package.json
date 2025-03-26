@@ -3,9 +3,12 @@
   "type": "module",
   "version": "1.0.0",
   "description": "A custom element designed for use with elm-mapbox",
-  "main": "dist/elm-mapbox.cjs.js",
-  "module": "dist/elm-mapbox.esm.js",
+  "main": "dist/elm-mapbox.cjs",
+  "module": "dist/elm-mapbox.mjs",
   "browser": "dist/elm-mapbox.umd.js",
+  "exports": {
+    ".": "dist/elm-mapbox.mjs"
+  },
   "files": [
     "dist"
   ],

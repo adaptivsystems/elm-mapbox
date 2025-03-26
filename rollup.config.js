@@ -1,8 +1,9 @@
+import { defineConfig } from "rollup";
 import resolve from "rollup-plugin-node-resolve";
 import commonjs from "rollup-plugin-commonjs";
 import pkg from "./package.json" with { type: "json" };
 
-export default [
+export default defineConfig([
   // browser-friendly UMD build
   {
     input: "src/js/main.js",
@@ -31,4 +32,4 @@ export default [
     ],
     plugins: [],
   },
-];
+]);

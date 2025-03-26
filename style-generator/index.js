@@ -1,13 +1,28 @@
-import { Elm } from "./src/Main.elm";
+import Main from "./src/Main.elm";
 import { migrate } from "@mapbox/mapbox-gl-style-spec";
-import deref from "@mapbox/mapbox-gl-style-spec/migrate/v9"
 import CodeMirror from "codemirror/lib/codemirror.js";
 import "codemirror/lib/codemirror.css";
 import "codemirror/theme/base16-light.css";
 import "codemirror/mode/elm/elm.js";
 import "codemirror/mode/javascript/javascript.js";
 
-var app = Elm.Main.init({});
+// import deref from "@mapbox/mapbox-gl-style-spec/migrate/v9"
+function deref(layer, parent) {
+  const result = {};
+  for (const k in layer) {
+    if (k !== "ref") {
+      result[k] = layer[k];
+    }
+  }
+  refProperties.forEach((k) => {
+    if (k in parent) {
+      result[k] = parent[k];
+    }
+  });
+  return result;
+}
+
+var app = Main.init({});
 
 customElements.define(
   "code-editor",

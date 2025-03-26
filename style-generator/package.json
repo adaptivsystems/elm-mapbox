@@ -1,12 +1,12 @@
 {
   "name": "elm-mapbox-style-generator",
+  "type": "module",
   "version": "1.0.0",
   "description": "Generate styles",
   "main": "index.js",
   "scripts": {
-    "test": "elm-test",
-    "start": "parcel index.html",
-    "build": "parcel build index.html --out-dir ../docs/style-generator --public-url ."
+    "start": "vite",
+    "build": "vite build"
   },
   "keywords": [
     "mapbox",
@@ -19,7 +19,7 @@
     "codemirror": "^5.42.2"
   },
   "devDependencies": {
-    "elm-hot": "^1.0.1",
-    "parcel-bundler": "^1.11.0"
+    "vite": "^6.2.3",
+    "vite-plugin-elm-watch": "^1.4.2"
   }
 }
