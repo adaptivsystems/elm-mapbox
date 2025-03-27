@@ -561,11 +561,10 @@ formatNumber : List NumberFormatOption -> Expression exprType Float -> Expressio
 formatNumber options number =
     Expression
         (Json.Encode.list identity
-            (Json.Encode.string "number-format"
-                :: encode number
-                :: [ Json.Encode.object (List.map (\(NFOption k v) -> ( k, v )) options)
-                   ]
-            )
+            [ Json.Encode.string "number-format"
+            , encode number
+            , Json.Encode.object (List.map (\(NFOption k v) -> ( k, v )) options)
+            ]
         )
 
 
@@ -575,14 +574,13 @@ collator : Expression e1 Bool -> Expression e2 Bool -> Expression e3 String -> E
 collator (Expression caseSensitive) (Expression diacriticSensitive) (Expression lcle) =
     Expression
         (Json.Encode.list identity
-            (Json.Encode.string "collator"
-                :: [ Json.Encode.object
-                        [ ( "case-sensitive", caseSensitive )
-                        , ( "diacritic-sensitive", diacriticSensitive )
-                        , ( "locale", lcle )
-                        ]
-                   ]
-            )
+            [ Json.Encode.string "collator"
+            , Json.Encode.object
+                [ ( "case-sensitive", caseSensitive )
+                , ( "diacritic-sensitive", diacriticSensitive )
+                , ( "locale", lcle )
+                ]
+            ]
         )
 
 
