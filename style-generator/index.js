@@ -6,7 +6,9 @@ import "codemirror/theme/base16-light.css";
 import "codemirror/mode/elm/elm.js";
 import "codemirror/mode/javascript/javascript.js";
 
-// import deref from "@mapbox/mapbox-gl-style-spec/migrate/v9"
+import refProperties from "@mapbox/mapbox-gl-style-spec/util/ref_properties.js";
+
+// This code comes from "@mapbox/mapbox-gl-style-spec/migrate/deref.js"
 function deref(layer, parent) {
   const result = {};
   for (const k in layer) {
