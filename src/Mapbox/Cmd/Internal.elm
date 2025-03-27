@@ -1,6 +1,6 @@
 module Mapbox.Cmd.Internal exposing (..)
 
-import Json.Encode as Encode exposing (Value)
+import Json.Encode exposing (Value)
 
 
 {-| Options use phantom types to show which commands support them.

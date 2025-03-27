@@ -41,7 +41,7 @@ You'd like to adjust font size of a town based on the number of people who live 
             |> Maybe.withDefault 1000
             |> scale ( 0, 1000 ) ( 9, 20 )
 
-In the expression language you can do this in a similar fassion:
+In the expression language you can do this in a similar fashion:
 
     sizeByPopulation : Expression DataExpression Float
     sizeByPopulation =
@@ -64,12 +64,12 @@ In the expression language you can do this in a similar fassion:
   - [Formatted Text](#formatted-text)
   - [Color](#color)
   - [Math](#math)
-  - [Misx](#misc)
+  - [Misc](#misc)
   - [Enums](#enums)
 
 **Note**: If you are familiar with the JS version of the style spec,
 we have made a few changes. Argument order has been switched for many functions to support using pipeline style more naturally. Some functions use overloading in the original, these have been renamed to
-not be overloaded. Finally, we have chosen not to represent some parts of the spec that are superflous (especially when used from Elm), namely functions and let-in expressions.
+not be overloaded. Finally, we have chosen not to represent some parts of the spec that are superfluous (especially when used from Elm), namely functions and let-in expressions.
 
 @docs Expression, DataExpression, CameraExpression
 
@@ -78,7 +78,7 @@ not be overloaded. Finally, we have chosen not to represent some parts of the sp
 
 ### Types
 
-All of the types used as expression results are phantom (i.e. they don't have any runtime values but are used purely for compile-time checking). As such we use a mix of standard elm types for their familiarty:
+All of the types used as expression results are phantom (i.e. they don't have any runtime values but are used purely for compile-time checking). As such we use a mix of standard elm types for their familiarity:
 
   - `Float`
   - `String`
@@ -187,7 +187,7 @@ import Json.Encode exposing (Value)
 
 {-| Expressions are zero overhead wrappers over the underlying JSON language that attempt to provide some type safety.
 
-Note however, that while being a strictly typed language, it has slighlty different semantics tham Elm:
+Note however, that while being a strictly typed language, it has slightly different semantics than Elm:
 
   - There is only a single number type. I have denoted it `Float`. You will notice that the `int` function takes an Elm int
     value and converts it to an `Expression expr Float`.
@@ -627,6 +627,7 @@ format =
         >> call "format"
 
 
+encodeFormatArgs : Maybe Value -> Maybe Value -> Value
 encodeFormatArgs maybeScaleExpr maybeFontStack =
     [ Maybe.map (\scaleExp -> ( "font-scale", scaleExp )) maybeScaleExpr
     , Maybe.map (\fontStack -> ( "text-font", fontStack )) maybeFontStack
@@ -650,7 +651,7 @@ formatted s =
 
 {-| Specifies a scaling factor relative to the text-size specified in the root layout properties.
 
-Note: this is indempotent, so calling `str "hi" |> formatted |> fontScaledBy 1.2 |> fontScaledBy 1.2` is equivalent to `str "hi" |> formatted |> fontScaledBy 1.2` rather than `str "hi" |> formatted |> fontScaledBy 1.44`.
+Note: this is idempotent, so calling `str "hi" |> formatted |> fontScaledBy 1.2 |> fontScaledBy 1.2` is equivalent to `str "hi" |> formatted |> fontScaledBy 1.2` rather than `str "hi" |> formatted |> fontScaledBy 1.44`.
 
 -}
 fontScaledBy : Expression exprType Float -> FormattedString -> FormattedString
@@ -783,30 +784,37 @@ typeof =
 -- Expressions
 
 
+call0 : String -> Expression exprType resultType
 call0 n =
     call n []
 
 
+call1 : String -> Expression exprType resultType -> Expression a b
 call1 n (Expression a) =
     call n [ a ]
 
 
+call2 : String -> Expression exprType resultType -> Expression a b -> Expression c d
 call2 n (Expression a) (Expression b) =
     call n [ a, b ]
 
 
+call3 : String -> Expression exprType resultType -> Expression a b -> Expression c d -> Expression e f
 call3 n (Expression a) (Expression b) (Expression c) =
     call n [ a, b, c ]
 
 
+call4 : String -> Expression exprType resultType -> Expression a b -> Expression c d -> Expression e f -> Expression g h
 call4 n (Expression a) (Expression b) (Expression c) (Expression d) =
     call n [ a, b, c, d ]
 
 
+calln : String -> List (Expression exprType a) -> Expression b resultType
 calln n expressions =
     call n (List.map encode expressions)
 
 
+call : String -> List Value -> Expression exprType resultType
 call name args =
     Expression (Json.Encode.list identity (Json.Encode.string name :: args))
 
@@ -1070,6 +1078,7 @@ type Interpolation
     | CubicBezier ( Float, Float ) ( Float, Float )
 
 
+encodeInterpolation : Interpolation -> Expression exprType resultType
 encodeInterpolation interpolation =
     case interpolation of
         Linear ->

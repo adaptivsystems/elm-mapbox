@@ -182,7 +182,7 @@ tolerance float =
 Cluster groups become new Point features in the source with additional properties:
 
   - `cluster` Is `True` if the point is a cluster
-  - `cluster_id` A unqiue id for the cluster.
+  - `cluster_id` A unique id for the cluster.
   - `point_count` Number of original points grouped into this cluster
   - `point_count_abbreviated` An abbreviated point count
 

@@ -1,4 +1,9 @@
-module Mapbox.Cmd.Template exposing (Id, Option, Outgoing, Supported, easeTo, fitBounds, flyTo, jumpTo, panBy, panTo, resize, rotateTo, stop, zoomIn, zoomOut, zoomTo)
+module Mapbox.Cmd.Template exposing
+    ( Id, Outgoing, Option, Supported
+    , panBy, panTo, zoomTo, zoomIn, zoomOut, rotateTo, jumpTo, easeTo, flyTo, stop
+    , fitBounds
+    , resize
+    )
 
 {-| This module has a bunch of essentially imperative commands for your map.
 
@@ -59,6 +64,7 @@ type alias Supported =
 -- AnimationOptions
 
 
+decodePair : Decode.Decoder a -> Decode.Decoder ( a, a )
 decodePair decoder =
     Decode.list decoder
         |> Decode.andThen
@@ -118,11 +124,12 @@ fitBounds prt id options bounds =
         ]
 
 
+encodeOptions : List (Option support) -> ( String, Value )
 encodeOptions opts =
     ( "options", Encode.object <| List.map (\(Option key val) -> ( key, val )) opts )
 
 
-{-| Pans the map by the specified offest.
+{-| Pans the map by the specified offset.
 -}
 panBy :
     Outgoing msg
@@ -371,6 +378,7 @@ queryResults prt getBounds_ queryRenderedFeatures_ error_ tagger =
     prt (decodeResponse getBounds_ queryRenderedFeatures_ error_ >> tagger)
 
 
+responseDecoder : (Int -> ( LngLat, LngLat ) -> a) -> (Int -> List Value -> a) -> Decode.Decoder a
 responseDecoder getBounds_ queryRenderedFeatures_ =
     Decode.field "type" Decode.string
         |> Decode.andThen
@@ -387,6 +395,7 @@ responseDecoder getBounds_ queryRenderedFeatures_ =
             )
 
 
+decodeResponse : (Int -> ( LngLat, LngLat ) -> a) -> (Int -> List Value -> a) -> (String -> a) -> Value -> a
 decodeResponse getBounds_ queryRenderedFeatures_ error_ value =
     case Decode.decodeValue (responseDecoder getBounds_ queryRenderedFeatures_) value of
         Ok res ->

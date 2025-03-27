@@ -231,10 +231,12 @@ type alias TouchEvent =
     }
 
 
+decodePoint : Decoder ( Int, Int )
 decodePoint =
     Decode.map2 (\a b -> ( round a, round b )) (Decode.field "x" Decode.float) (Decode.field "y" Decode.float)
 
 
+decodeEventData : Decoder EventData
 decodeEventData =
     Decode.map3 EventData
         (Decode.field "point" decodePoint)
@@ -242,6 +244,7 @@ decodeEventData =
         (Decode.field "features" (Decode.list Decode.value))
 
 
+decodeTouchEvent : Decoder TouchEvent
 decodeTouchEvent =
     Decode.map2 TouchEvent
         (Decode.map3 (List.map3 EventData)
