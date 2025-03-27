@@ -528,7 +528,7 @@ export function registerPorts(
     console.warn(
       `Expected Elm App to expose ${
         options.outgoingPort
-      } port. Please add https://github.com/gampleman/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
+      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
     );
   }
 

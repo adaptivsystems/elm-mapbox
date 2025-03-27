@@ -7,7 +7,7 @@ module Mapbox.Cmd.Template exposing
 
 {-| This module has a bunch of essentially imperative commands for your map.
 
-However, since a published library can't have ports in it, you will need to do some setup. The easiest way to do this is to copy [this file into your app](https://github.com/gampleman/elm-mapbox/blob/master/examples/MapCommands.elm). You can see the module docs for that [here](https://github.com/gampleman/elm-mapbox/blob/master/docs/MapCommands.md).
+However, since a published library can't have ports in it, you will need to do some setup. The easiest way to do this is to copy [this file into your app](https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm). You can see the module docs for that [here](https://github.com/adaptivsystems/elm-mapbox/blob/master/docs/MapCommands.md).
 
 @docs Id, Outgoing, Option, Supported
 

@@ -1,6 +1,6 @@
 {
     "type": "package",
-    "name": "gampleman/elm-mapbox",
+    "name": "adaptivsystems/elm-mapbox",
     "summary": "Mapbox integration, forked from gampleman/elm-mapbox",
     "license": "MIT",
     "version": "1.0.0",
