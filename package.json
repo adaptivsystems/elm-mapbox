@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "description": "A custom element designed for use with elm-mapbox",
   "module": "dist/elm-mapbox.mjs",
+  "types": "./dist",
   "exports": {
-    ".": "dist/elm-mapbox.mjs"
+    ".": "./dist/elm-mapbox.mjs"
   },
   "files": [
     "dist"
@@ -39,7 +40,8 @@
     "elm-test": "^0.19.1-revision15",
     "prettier": "^3.5.3",
     "rollup": "^4.37.0",
-    "tslib": "^2.8.1"
+    "tslib": "^2.8.1",
+    "typescript": "^5.8.2"
   },
   "dependencies": {
     "mapbox-gl": "^3.10.0"

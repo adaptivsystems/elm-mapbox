@@ -1,13 +1,13 @@
 import mapboxgl, {
-  AnimationOptions,
-  CameraOptions,
   EasingOptions,
   FeatureSelector,
-  GeoJSONFeature,
+  FilterSpecification,
   LngLatBoundsLike,
   LngLatLike,
+  MapEventOf,
+  MapEventType,
+  PointLike,
   StyleSpecification,
-  TargetFeature,
 } from "mapbox-gl";
 
 type Command = (map: mapboxgl.Map) => void;
@@ -15,9 +15,18 @@ type FeatureState = {
   [_: string]: unknown;
 };
 type Options = {
-  onMount: (map: mapboxgl.Map, customElement: HTMLElement) => void;
+  onMount?: (map: mapboxgl.Map, customElement: HTMLElement) => void;
   token?: string;
 };
+
+// Types copied from mapbox-gl's typedefs because they're not exported.
+type QueryRenderedFeaturesParams = {
+  layers?: string[];
+  filter?: FilterSpecification;
+  validate?: boolean;
+  target?: never;
+};
+type Listener<T extends MapEventType> = (event: MapEventOf<T>) => void;
 
 const commandRegistry: Record<string, Command[]> = {};
 
@@ -36,12 +45,14 @@ export function registerCustomElement(settings: Options) {
     class MapboxMap extends HTMLElement {
       private _bearing?: number;
       private _center?: LngLatLike;
-      private _eventListenerMap: Map<unknown, unknown>;
-      private _eventRegistrationQueue: Record<string, unknown>;
-      private _featureState?: [
-        FeatureSelector | GeoJSONFeature | TargetFeature,
-        FeatureState,
-      ][];
+      private _eventListenerMap: Map<
+        Listener<MapEventType>,
+        Listener<MapEventType>
+      >;
+      private _eventRegistrationQueue: {
+        [T in MapEventType]?: Listener<Extract<T, MapEventType>>[];
+      };
+      private _featureState?: [Required<FeatureSelector>, FeatureState][];
       private _map?: mapboxgl.Map;
       private _maxBounds?: LngLatBoundsLike;
       private _maxZoom?: number;
@@ -51,8 +62,10 @@ export function registerCustomElement(settings: Options) {
       private _renderWorldCopies: boolean;
       private _style?: StyleSpecification | string;
       private _zoom?: number;
-      interactive: boolean;
-      logoPosition?: mapboxgl.ControlPosition;
+      eventFeaturesLayers: string[]; // NEVER SET
+      eventFeaturesFilter: FilterSpecification; // NEVER SET
+      interactive: boolean; // ONLY SET TO true
+      logoPosition?: mapboxgl.ControlPosition; // NEVER SET
       token: undefined; // NEVER SET
 
       constructor() {
@@ -151,7 +164,7 @@ export function registerCustomElement(settings: Options) {
           source,
           sourceLayer,
         }: {
-          id: string;
+          id: string | number;
           source: string;
           sourceLayer: string;
         }) {
@@ -198,34 +211,48 @@ export function registerCustomElement(settings: Options) {
         this._featureState = value;
       }
 
-      addEventListener(type, fn, ...args) {
+      addEventListener<T extends MapEventType>(
+        type: T,
+        fn: Listener<Extract<T, MapEventType>>,
+      ): this {
         if (this._map) {
-          const wrapped = (e) =>
+          // Wrap the listener--which will likely be an Elm function--in order
+          // to sneakily give it a proxy object so we can get information it
+          // needs from the map object.
+          const wrapped: Listener<Extract<T, MapEventType>> = (e) =>
             fn(
               new Proxy(e, {
                 has: (obj, prop) =>
                   prop in obj ||
-                  (prop === "features" && obj.point) ||
-                  (prop === "perPointFeatures" && obj.points) ||
-                  ((prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
-                    prop in this._map &&
-                    typeof this._map[prop] === "function"),
+                  (typeof prop === "string" &&
+                    ((prop === "features" && obj["point"]) ||
+                      (prop === "perPointFeatures" && obj["points"]) ||
+                      ((prop.slice(0, 2) === "is" ||
+                        prop.slice(0, 3) === "get") &&
+                        prop in this._map &&
+                        typeof this._map[prop] === "function"))),
                 get: (obj, prop) => {
                   if (prop in obj) {
                     return obj[prop];
-                  } else if (prop === "features" && obj.point) {
-                    return this._map.queryRenderedFeatures(obj.point, {
+                  } else if (prop === "features" && obj["point"]) {
+                    return this._map.queryRenderedFeatures(obj["point"], {
                       layers: this.eventFeaturesLayers,
                       filter: this.eventFeaturesFilter,
                     });
-                  } else if (prop === "perPointFeatures" && obj.points) {
-                    return obj.points.map((point) =>
-                      this._map.queryRenderedFeatures(point, {
-                        layers: this.eventFeaturesLayers,
-                        filter: this.eventFeaturesFilter,
-                      }),
+                  } else if (
+                    prop === "perPointFeatures" &&
+                    obj["points"] &&
+                    Array.isArray(obj["points"])
+                  ) {
+                    return obj["points"].map(
+                      (point: PointLike | [PointLike, PointLike]) =>
+                        this._map.queryRenderedFeatures(point, {
+                          layers: this.eventFeaturesLayers,
+                          filter: this.eventFeaturesFilter,
+                        }),
                     );
                   } else if (
+                    typeof prop === "string" &&
                     (prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
                     prop in this._map &&
                     typeof this._map[prop] === "function"
@@ -241,27 +268,32 @@ export function registerCustomElement(settings: Options) {
               }),
             );
           this._eventListenerMap.set(fn, wrapped);
-          return this._map.on(type, wrapped);
+          this._map.on(type, wrapped);
         } else {
           this._eventRegistrationQueue[type] =
             this._eventRegistrationQueue[type] || [];
-          return this._eventRegistrationQueue[type].push(fn);
+          this._eventRegistrationQueue[type].push(fn);
         }
+        return this;
       }
 
-      removeEventListener(type, fn, ...args) {
+      removeEventListener<T extends MapEventType>(
+        type: T,
+        fn: Listener<Extract<T, MapEventType>>,
+      ): this {
         if (this._map) {
-          const wrapped = this._eventListenerMap.get(fn);
+          const wrapped: Listener<Extract<T, MapEventType>> =
+            this._eventListenerMap.get(fn);
           this._eventListenerMap.delete(fn);
-          return this._map.off(type, wrapped);
+          this._map.off(type, wrapped);
         } else {
           const queue = this._eventRegistrationQueue[type] || [];
           const index = queue.findIndex(fn);
           if (index >= 0) {
             queue.splice(index, 1);
           }
-          return;
         }
+        return this;
       }
 
       _createMapInstance() {
@@ -291,8 +323,8 @@ export function registerCustomElement(settings: Options) {
         }
         this._map = new mapboxgl.Map(mapOptions);
 
-        Object.entries(this._eventRegistrationQueue).forEach(
-          ([type, listeners]) => {
+        Object.entries(this._eventRegistrationQueue).map(
+          ([type, listeners]: [MapEventType, Listener<MapEventType>[]]) => {
             listeners.forEach((listener) => {
               this.addEventListener(type, listener);
             });
@@ -333,7 +365,7 @@ export function registerCustomElement(settings: Options) {
         this._map = this._createMapInstance();
       }
 
-      _upgradeProperty(prop) {
+      _upgradeProperty(prop: string) {
         if (this.hasOwnProperty(prop)) {
           const value = this[prop];
           delete this[prop];
@@ -352,10 +384,34 @@ export function registerCustomElement(settings: Options) {
 type ElmApp = {
   ports?: Record<string, Port>;
 };
-type PortCommand = { target: string; options: EasingOptions } & (
+
+type AnimationPortCommand = { target: string; options: EasingOptions } & (
   | { command: "resize" }
   | { command: "fitBounds"; bounds: LngLatBoundsLike }
+  | { command: "panBy"; offset: PointLike }
+  | { command: "panTo"; location: LngLatLike }
+  | { command: "zoomTo"; zoom: number }
+  | { command: "zoomIn" }
+  | { command: "zoomOut" }
+  | { command: "rotateTo"; bearing: number }
+  | { command: "jumpTo" }
+  | { command: "easeTo" }
+  | { command: "flyTo" }
+  | { command: "stop" }
 );
+type QueryPortCommand = { target: string } & (
+  | { command: "setRTLTextPlugin"; url: string }
+  | { command: "getBounds"; requestId: string }
+  | {
+      command: "queryRenderedFeatures";
+      geometry: PointLike | [PointLike, PointLike];
+      requestId: string;
+      options: QueryRenderedFeaturesParams;
+    }
+);
+
+type PortCommand = AnimationPortCommand | QueryPortCommand;
+
 type Port = {
   send?: (data: unknown) => void;
   subscribe?: (callback: (command: PortCommand) => unknown) => void;
@@ -448,7 +504,7 @@ export function registerPorts(
             return map.stop();
 
           case "setRTLTextPlugin":
-            return map.setRTLTextPlugin(event.url);
+            return mapboxgl.setRTLTextPlugin(event.url);
 
           case "getBounds":
             return elmApp.ports[options.incomingPort].send({
@@ -461,12 +517,9 @@ export function registerPorts(
             return elmApp.ports[options.incomingPort].send({
               type: "queryRenderedFeatures",
               id: event.requestId,
-              features: event.query
-                ? map.queryRenderedFeatures(processOptions(event.options))
-                : map.queryRenderedFeatures(
-                    event.query,
-                    processOptions(event.options),
-                  ),
+              features: event.geometry
+                ? map.queryRenderedFeatures(event.geometry, event.options)
+                : map.queryRenderedFeatures(event.options),
             });
         }
       });

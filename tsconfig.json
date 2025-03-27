@@ -1,0 +1,11 @@
+{
+  "exclude": ["**/dist", "docs"],
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
+    "target": "esnext"
+  }
+}
