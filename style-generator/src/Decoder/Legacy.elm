@@ -2,12 +2,12 @@ module Decoder.Legacy exposing (filter)
 
 import Decoder.Expression exposing (decodeBool)
 import Decoder.Generic as Decode
-import Decoder.Helpers exposing (todo)
-import Json.Decode as D exposing (Decoder)
+import Json.Decode as D
 import Lib
-import MyElm.Syntax exposing (Expression, calln, float, int, list, pair, string)
+import MyElm.Syntax exposing (Expression, calln, float, list, string)
 
 
+filter : D.Decoder Expression
 filter =
     let
         decodeProp =

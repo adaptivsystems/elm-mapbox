@@ -21,6 +21,7 @@ port requestStyleUpgrade : String -> Cmd msg
 port styleUpgradeComplete : (Value -> msg) -> Sub msg
 
 
+main : Program () Model Msg
 main =
     Browser.document
         { init = init
@@ -30,6 +31,7 @@ main =
         }
 
 
+init : () -> ( Model, Cmd msg )
 init () =
     ( { styleUrl = ""
       , token = ""
@@ -49,6 +51,16 @@ type Msg
     | StyleUpgradeCompleted Value
 
 
+type alias Model =
+    { style : Maybe String
+    , error : Maybe String
+    , styleUrl : String
+    , token : String
+    , code : Maybe (Result String String)
+    }
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         LoadedStyle (Ok style) ->
@@ -88,10 +100,12 @@ update msg model =
             )
 
 
-subscriptions l =
+subscriptions : Model -> Sub Msg
+subscriptions _ =
     styleUpgradeComplete StyleUpgradeCompleted
 
 
+fetchStyle : String -> String -> Cmd Msg
 fetchStyle styleUrl token =
     String.replace "mapbox://styles/" "https://api.mapbox.com/styles/v1/" styleUrl
         ++ "?access_token="
@@ -104,10 +118,12 @@ fetchStyle styleUrl token =
 -- UI
 
 
+pad : number
 pad =
     20
 
 
+body : Model -> Html.Html Msg
 body model =
     Element.layout [ width fill, height fill ] <|
         Element.column [ width fill, height fill, spacing pad ]
@@ -125,6 +141,7 @@ body model =
             ]
 
 
+form : List (Element.Attribute Msg) -> Model -> Element Msg
 form attrs model =
     Element.column attrs
         [ Element.el [] <| Element.text "Import style from Mapbox"
@@ -179,6 +196,7 @@ codeEditor props =
             []
 
 
+results : List (Element.Attribute msg) -> { a | error : Maybe String, code : Maybe (Result String String) } -> Element msg
 results attrs model =
     Element.el attrs <|
         case ( model.error, model.code ) of
@@ -221,7 +239,7 @@ code =
 errorToString : Http.Error -> String
 errorToString err =
     case err of
-        Http.BadUrl stringString ->
+        Http.BadUrl _ ->
             "Invalid URL. Check the inputs to make sure that it is a valid https url or starts with mapbox://styles/"
 
         Http.Timeout ->
@@ -245,6 +263,7 @@ errorToString err =
             m
 
 
+view : Model -> { title : String, body : List (Html.Html Msg) }
 view model =
     { title = "Style Generator"
     , body =

@@ -11,18 +11,22 @@ import MyElm.Syntax exposing (..)
 import String.Case exposing (toCamelCaseLower)
 
 
+styleNs : List String
 styleNs =
     [ "Mapbox", "Style" ]
 
 
+layerNs : List String
 layerNs =
     [ "Mapbox", "Layer" ]
 
 
+sourceNs : List String
 sourceNs =
     [ "Mapbox", "Source" ]
 
 
+styleName : String -> QualifiedName
 styleName nm =
     Advanced.aliasedName
         { modulePath = styleNs
@@ -33,6 +37,7 @@ styleName nm =
         }
 
 
+layerName : String -> QualifiedName
 layerName nm =
     Advanced.aliasedName
         { modulePath = layerNs
@@ -43,6 +48,7 @@ layerName nm =
         }
 
 
+sourceName : String -> QualifiedName
 sourceName nm =
     Advanced.aliasedName
         { modulePath = layerNs
@@ -58,10 +64,12 @@ styleCode =
     D.map file style
 
 
+declarations : List ( String, Expression ) -> List Declaration
 declarations styleDec =
     [ variable "style" (type0 (typeName styleNs "Style")) (call1 (constructorName [ "Mapbox", "Style" ] "Style" "Style") (record styleDec)) ]
 
 
+file : List ( String, Expression ) -> String
 file styleDec =
     build
         { name = [ "Style" ]
@@ -71,6 +79,7 @@ file styleDec =
         }
 
 
+style : Decoder (List ( String, Expression ))
 style =
     D.map5
         (\transition light layers sources misc ->
@@ -96,6 +105,7 @@ style =
         decodeMisc
 
 
+decodeTransition : Decoder Expression
 decodeTransition =
     D.map2
         (\duration delay ->
@@ -108,19 +118,23 @@ decodeTransition =
         (D.oneOf [ D.field "delay" D.int, D.succeed 0 ])
 
 
+decodeLight : Decoder Expression
 decodeLight =
     valueDecoder "Style" "defaultLight"
 
 
+decodeLayers : Decoder Expression
 decodeLayers =
     D.list decodeLayer
         |> D.map list
 
 
+layerDecodeHelp : String -> Decoder Expression
 layerDecodeHelp t =
     D.map3 (\id source attrs -> call3 (layerName t) (string id) (string source) (list attrs)) (D.field "id" D.string) (D.field "source" D.string) decodeAttrs
 
 
+decodeLayer : Decoder Expression
 decodeLayer =
     D.field "type" D.string
         |> D.andThen
@@ -158,6 +172,7 @@ decodeLayer =
             )
 
 
+decodeAttrs : Decoder (List Expression)
 decodeAttrs =
     D.map3 (\top paint layout -> top ++ paint ++ layout) (D.keyValuePairs D.value) (Decode.withDefault [] (D.field "paint" (D.keyValuePairs D.value))) (Decode.withDefault [] (D.field "layout" (D.keyValuePairs D.value)))
         |> D.andThen
@@ -204,6 +219,7 @@ decodeAttrs =
             )
 
 
+decodeAttr : String -> Decoder Expression -> D.Value -> Maybe (Decoder Expression)
 decodeAttr attrName expressionNodeDecoder attrValue =
     Just
         (D.decodeValue expressionNodeDecoder attrValue
@@ -212,12 +228,14 @@ decodeAttr attrName expressionNodeDecoder attrValue =
         )
 
 
+decodeSources : Decoder Expression
 decodeSources =
     D.keyValuePairs decodeSource
         |> D.map (List.map (\( key, fn ) -> fn key))
         |> D.map list
 
 
+decodeSource : Decoder (String -> Expression)
 decodeSource =
     D.field "type" D.string
         |> D.andThen
@@ -269,6 +287,7 @@ sourceField name elmName decoder toExpr =
     D.maybe (D.field name (D.map (\item -> call1 (sourceName elmName) (toExpr item)) decoder))
 
 
+decodeMisc : Decoder Expression
 decodeMisc =
     D.map6 (\sprite glyphs name zoom bearing pitch -> [ sprite, glyphs, name, zoom, bearing, pitch ] |> List.filterMap identity |> list)
         (miscField "sprite" "sprite" D.string string)
@@ -289,5 +308,6 @@ miscField name elmName decoder toExpr =
 --
 
 
+valueDecoder : String -> String -> Decoder Expression
 valueDecoder ns name =
     D.succeed (call0 (Advanced.aliasedName { modulePath = [ "Mapbox", ns ], aliasName = ns, name = name, typeName = Nothing }))

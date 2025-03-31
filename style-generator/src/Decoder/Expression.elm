@@ -9,6 +9,7 @@ import MyElm.Syntax exposing (Expression, call1, calln, float, int, list, pair, 
 import String.Case exposing (toCamelCaseLower)
 
 
+expression : Decoder Expression
 expression =
     D.oneOf
         [ D.string |> D.map makeConstant
@@ -22,6 +23,7 @@ expression =
         ]
 
 
+decodeLiteral : Decoder Expression
 decodeLiteral =
     D.oneOf
         [ D.string |> D.map makeConstant
@@ -32,6 +34,7 @@ decodeLiteral =
         ]
 
 
+makeConstant : String -> Expression
 makeConstant s =
     case s of
         "map" ->
@@ -133,6 +136,7 @@ makeConstant s =
                     string s |> Lib.str
 
 
+decodeExpression : String -> Decoder Expression
 decodeExpression funName =
     case funName of
         "literal" ->
@@ -270,6 +274,7 @@ decodeExpression funName =
                 fallback
 
 
+decodeBool : Decoder Expression
 decodeBool =
     D.bool
         |> D.map
@@ -317,6 +322,7 @@ decodeMatch isString _ =
             )
 
 
+normalizeArgs : List D.Value -> List D.Value
 normalizeArgs args =
     case args of
         a :: b :: rest ->
@@ -331,6 +337,7 @@ normalizeArgs args =
             args
 
 
+organizeArgs : Decoder Expression -> List (Decoder Expression) -> List D.Value -> Decoder (List Expression)
 organizeArgs inpDec accu args =
     case args of
         [] ->

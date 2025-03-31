@@ -121,7 +121,7 @@ renderWorldCopies =
 
 The most common is user interaction states like hover, selected, etc.
 
-The feature here is accepted as a `Value`. This is partially due to its flexibility, but in order for this to work, this must be an object with the following **top-level** propreties:
+The feature here is accepted as a `Value`. This is partially due to its flexibility, but in order for this to work, this must be an object with the following **top-level** properties:
 
   - `source`
   - `sourceLayer` (only for vector sources)
@@ -129,7 +129,7 @@ The feature here is accepted as a `Value`. This is partially due to its flexibil
 
 You can get these `Value`s from event listeners and pass them straight through. The state is a list of `(key, value)` pairs.
 
-You can use this state infromation through the `Mapbox.Expression.featureState` expression.
+You can use this state information through the `Mapbox.Expression.featureState` expression.
 
     Layer.fillOpacity <|
         E.ifElse
