@@ -5,7 +5,11 @@
     "checkJs": true,
     "module": "preserve",
     "moduleResolution": "bundler",
+    "target": "es2022",
+    "declaration": true,
+    "declarationDir": "dist",
+    "declarationMap": true,
     "skipLibCheck": true,
-    "target": "esnext"
+    "sourceMap": true
   }
 }

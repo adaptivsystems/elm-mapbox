@@ -1,13 +1,16 @@
 import process from "node:process";
 
 /* eslint-disable */
+/**
+ * @param {{ [x: string]: ArrayLike<any> | { [s: string]: any; }; layout: any; paint: any; }} spec
+ */
 function generateProperties(spec) {
   const layouts = spec.layout;
   const paints = spec.paint;
   const codes = {};
   const docs = {};
 
-  layouts.forEach((l) => {
+  layouts.forEach((/** @type {string} */ l) => {
     const layerType = titleCase(l.split("_")[1]);
     docs[layerType] = [];
     codes[layerType] = [];
@@ -23,7 +26,7 @@ function generateProperties(spec) {
       }
     });
   });
-  paints.forEach((l) => {
+  paints.forEach((/** @type {string} */ l) => {
     const layerType = titleCase(l.split("_")[1]);
     Object.entries(spec[l]).forEach(([name, prop]) => {
       if (name == "visibility") return;
@@ -315,6 +318,9 @@ function codeSnippet(name) {
   return "`" + camelCase(name) + "`";
 }
 
+/**
+ * @param {{ [s: string]: any; } | ArrayLike<any>} req
+ */
 function requires(req) {
   if (typeof req === "string") {
     return `Requires ${codeSnippet(req)}.`;
@@ -337,11 +343,14 @@ function requires(req) {
   }
 }
 
+/**
+ * @param {string} name
+ * @param {{ [x: string]: { [x: string]: { js: any; }; }; minimum?: any; maximum?: any; values: any; doc?: any; units?: any; default?: any; requires?: any; type: string; value?: any; }} prop
+ * @param {string} layerType
+ * @param {string} position
+ */
 function generateElmProperty(name, prop, layerType, position) {
   if (name == "visibility") return "";
-  if (prop["property-type"] === "constant") {
-    throw "Constant property type not supported";
-  }
   const elmName = camelCase(name);
   const exprKind =
     prop["sdk-support"] &&
@@ -378,6 +387,10 @@ ${elmName} =
     Expression.encode >> ${position} "${name}"`;
 }
 
+/**
+ * @param {string} str
+ * @param {string} [name]
+ */
 function docify(str, name) {
   switch (name) {
     case "lineGradient":
@@ -406,6 +419,13 @@ const enums =
     ", ",
   );
 
+/**
+ * @param {Object} options
+ * @param {string} options.type
+ * @param {string} options.value
+ * @param {string[]} options.values
+ * @param {string} name
+ */
 function getElmType({ type, value, values }, name) {
   switch (type) {
     case "number":
@@ -445,6 +465,9 @@ function getElmType({ type, value, values }, name) {
   throw `Unknown type ${type} for ${name}, ${value}, ${values && Object.keys(values)}`;
 }
 
+/**
+ * @param {string} str
+ */
 function titleCase(str) {
   return str
     .replace(/\-/, " ")
@@ -454,6 +477,9 @@ function titleCase(str) {
     .replace(/\s/, "");
 }
 
+/**
+ * @param {string} str
+ */
 function camelCase(str) {
   if (str === "round") {
     return "rounded";

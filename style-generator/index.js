@@ -1,3 +1,5 @@
+/* eslint-disable */
+// @ts-nocheck
 import Main from "./src/Main.elm";
 import { migrate } from "@mapbox/mapbox-gl-style-spec";
 import CodeMirror from "codemirror/lib/codemirror.js";
@@ -6,25 +8,16 @@ import "codemirror/theme/base16-light.css";
 import "codemirror/mode/elm/elm.js";
 import "codemirror/mode/javascript/javascript.js";
 
-import refProperties from "@mapbox/mapbox-gl-style-spec/util/ref_properties.js";
-
 // This code comes from "@mapbox/mapbox-gl-style-spec/migrate/deref.js"
-function deref(layer, parent) {
+function deref(layer) {
   const result = {};
   for (const k in layer) {
     if (k !== "ref") {
       result[k] = layer[k];
     }
   }
-  refProperties.forEach((k) => {
-    if (k in parent) {
-      result[k] = parent[k];
-    }
-  });
   return result;
 }
-
-var app = Main.init({});
 
 customElements.define(
   "code-editor",
@@ -89,11 +82,18 @@ customElements.define(
   },
 );
 
+const app = Main.init({});
 app.ports.requestStyleUpgrade.subscribe((style) => {
   try {
-    const migrated = deref(migrate(JSON.parse(style)));
-    app.ports.styleUpgradeComplete.send({ type: "Ok", result: migrated });
+    const parsed = JSON.parse(style);
+    const migrated = migrate(parsed);
+    console.dir({ parsed, migrated });
+    const result = deref(migrated);
+    app.ports.styleUpgradeComplete.send({ type: "Ok", result });
   } catch (error) {
-    app.ports.styleUpgradeComplete.send({ type: "Err", error });
+    app.ports.styleUpgradeComplete.send({
+      type: "Err",
+      error: { message: `${error.name}: ${error.message}` },
+    });
   }
 });

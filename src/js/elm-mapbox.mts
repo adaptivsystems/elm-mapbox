@@ -65,8 +65,12 @@ export function registerCustomElement(settings: Options) {
       eventFeaturesLayers: string[]; // NEVER SET
       eventFeaturesFilter: FilterSpecification; // NEVER SET
       interactive: boolean; // ONLY SET TO true
-      logoPosition?: mapboxgl.ControlPosition; // NEVER SET
-      token: undefined; // NEVER SET
+
+      // Potentially set via HTML property
+      logoPosition?: mapboxgl.ControlPosition;
+
+      // Potentially set via HTML property
+      token: undefined;
 
       constructor() {
         super();
@@ -381,10 +385,6 @@ export function registerCustomElement(settings: Options) {
   );
 }
 
-type ElmApp = {
-  ports?: Record<string, Port>;
-};
-
 type AnimationPortCommand = { target: string; options: EasingOptions } & (
   | { command: "resize" }
   | { command: "fitBounds"; bounds: LngLatBoundsLike }
@@ -412,6 +412,9 @@ type QueryPortCommand = { target: string } & (
 
 type PortCommand = AnimationPortCommand | QueryPortCommand;
 
+type ElmApp = {
+  ports?: Record<string, Port>;
+};
 type Port = {
   send?: (data: unknown) => void;
   subscribe?: (callback: (command: PortCommand) => unknown) => void;

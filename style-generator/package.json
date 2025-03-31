@@ -15,7 +15,7 @@
   "author": "Jakub Hampl kopomir@gmail.com",
   "license": "MIT",
   "dependencies": {
-    "@mapbox/mapbox-gl-style-spec": "^13.5.0",
+    "@mapbox/mapbox-gl-style-spec": "^14.10.0",
     "codemirror": "^5.42.2"
   },
   "devDependencies": {

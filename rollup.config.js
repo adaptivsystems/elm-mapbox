@@ -10,13 +10,11 @@ export default defineConfig({
   output: {
     file: pkg.module,
     format: "module",
+    sourcemap: true,
   },
   plugins: [
     typescript({
-      compilerOptions: {
-        declaration: true,
-        declarationDir: "dist",
-      },
+      compilerOptions: {},
     }),
   ],
 });
