@@ -8,7 +8,7 @@ module Mapbox.Expression exposing
     , formatNumber, NumberFormatOption, locale, currency, minFractionDigits, maxFractionDigits
     , typeof
     , at, get, has, count, length
-    , featureState, geometryType, id, properties, getProperty, hasProperty
+    , featureState, geometryType, id, properties, getProperty, getProperty_, hasProperty
     , isEqual, notEqual, lessThan, lessThanOrEqual, greaterThan, greaterThanOrEqual
     , isEqualWithCollator, notEqualWithCollator, lessThanWithCollator, lessThanOrEqualWithCollator, greaterThanWithCollator, greaterThanOrEqualWithCollator
     , not, all, any
@@ -17,9 +17,9 @@ module Mapbox.Expression exposing
     , append, downcase, upcase, isSupportedScript, resolvedLocale
     , format, FormattedString, formatted, fontScaledBy, withFont
     , makeRGBColor, makeRGBAColor, rgbaChannels
-    , minus, multiply, divideBy, modBy, plus, raiseBy, sqrt, abs, ceil, floor, round, cos, sin, tan, acos, asin, atan, e, pi, ln, ln2, log10, log2
-    , zoom, heatmapDensity, lineProgress
-    , map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source
+    , distanceFromCenter, minus, multiply, divideBy, modBy, plus, raiseBy, sqrt, abs, ceil, floor, round, cos, sin, tan, acos, asin, atan, e, pi, ln, ln2, log10, log2
+    , pitch, pitch_, zoom, zoom_, heatmapDensity, lineProgress
+    , map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, cubicBezier, linear, nearest, viewportY, source
     )
 
 {-| Expressions form a little language that can be used to compute values for various layer properties.
@@ -117,7 +117,7 @@ You can also use these functions to explicitly cast to a particular type:
 
 ### Feature data
 
-@docs featureState, geometryType, id, properties, getProperty, hasProperty
+@docs featureState, geometryType, id, properties, getProperty, getProperty_, hasProperty
 
 
 ### Decision
@@ -161,12 +161,12 @@ Control flow:
 
 ### Math
 
-@docs minus, multiply, divideBy, modBy, plus, raiseBy, sqrt, abs, ceil, floor, round, cos, sin, tan, acos, asin, atan, e, pi, ln, ln2, log10, log2
+@docs distanceFromCenter, minus, multiply, divideBy, modBy, plus, raiseBy, sqrt, abs, ceil, floor, round, cos, sin, tan, acos, asin, atan, e, pi, ln, ln2, log10, log2
 
 
 ### Misc
 
-@docs zoom, heatmapDensity, lineProgress
+@docs pitch, pitch_, zoom, zoom_, heatmapDensity, lineProgress
 
 
 ### Enums
@@ -176,7 +176,7 @@ of their effects at the relevant layer property.
 
 **Note:** You may notice that these have slightly odd types. These types allow them to be overloaded for multiple properties, but still remain type safe. Don't worry about these too much!
 
-@docs map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, linear, nearest, viewportY, source
+@docs map, viewport, auto, center, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight, none, width, height, both, butt, rounded, square, bevel, miter, point, lineCenter, line, uppercase, lowercase, cubicBezier, linear, nearest, viewportY, source
 
 -}
 
@@ -433,6 +433,11 @@ uppercase =
 lowercase : Expression exprType { a | lowercase : Supported }
 lowercase =
     Expression (Json.Encode.string "lowercase")
+
+
+cubicBezier : Expression exprType { a | cubicBezier : Supported }
+cubicBezier =
+    Expression (Json.Encode.string "cubic-bezier")
 
 
 {-| -}
@@ -859,6 +864,13 @@ getProperty =
     call1 "get"
 
 
+{-| Retrieves a property value from the current feature's properties. Returns null if the requested property is missing.
+-}
+getProperty_ : Expression exprType String -> Expression CameraExpression any
+getProperty_ =
+    call1 "get"
+
+
 {-| Retrieves a property value from an object. Returns null if the requested property is missing.
 -}
 get : Expression exprType1 String -> Expression exprType2 Object -> Expression exprType2 any
@@ -1184,6 +1196,11 @@ rgbaChannels =
 -- Math
 
 
+distanceFromCenter : Expression exprType Float
+distanceFromCenter =
+    call0 "distance-from-center"
+
+
 {-| Returns the result of subtracting the first input from the second.
 
     a |> minus b --> a - b
@@ -1371,13 +1388,30 @@ tan =
 
 
 
--- Zoom
+-- MISC
+
+
+pitch : Expression CameraExpression Float
+pitch =
+    call0 "pitch"
+
+
+pitch_ : Expression DataExpression Float
+pitch_ =
+    call0 "pitch"
 
 
 {-| Gets the current zoom level. Note that in style layout and paint properties, `zoom` may only appear as the input to a top-level `step` or `interpolate` expression.
 -}
 zoom : Expression CameraExpression Float
 zoom =
+    call0 "zoom"
+
+
+{-| Gets the current zoom level as a DataExpression. Note that in style layout and paint properties, `zoom` may only appear as the input to a top-level `step` or `interpolate` expression.
+-}
+zoom_ : Expression DataExpression Float
+zoom_ =
     call0 "zoom"
 
 
