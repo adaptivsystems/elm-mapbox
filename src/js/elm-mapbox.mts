@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import mapboxgl, {
   EasingOptions,
   FeatureSelector,
@@ -6,6 +7,8 @@ import mapboxgl, {
   LngLatLike,
   MapEventOf,
   MapEventType,
+  MapMouseEvent,
+  MapTouchEvent,
   PointLike,
   StyleSpecification,
 } from "mapbox-gl";
@@ -40,15 +43,13 @@ export function registerCustomElement(settings: Options) {
   if (options.token) {
     mapboxgl.accessToken = options.token;
   }
+
   window.customElements.define(
     "elm-mapbox-map",
     class MapboxMap extends HTMLElement {
       private _bearing?: number;
       private _center?: LngLatLike;
-      private _eventListenerMap: Map<
-        Listener<MapEventType>,
-        Listener<MapEventType>
-      >;
+      private _eventListenerMap: Map<Listener<any>, Listener<any>>;
       private _eventRegistrationQueue: {
         [T in MapEventType]?: Listener<Extract<T, MapEventType>>[];
       };
@@ -62,18 +63,20 @@ export function registerCustomElement(settings: Options) {
       private _renderWorldCopies: boolean;
       private _style?: StyleSpecification | string;
       private _zoom?: number;
-      eventFeaturesLayers: string[]; // NEVER SET
-      eventFeaturesFilter: FilterSpecification; // NEVER SET
+
       interactive: boolean; // ONLY SET TO true
 
-      // Potentially set via HTML property
+      // These are *potentially* set via HTML properties
+      eventFeaturesFilter: FilterSpecification;
+      eventFeaturesLayers: string[];
       logoPosition?: mapboxgl.ControlPosition;
-
-      // Potentially set via HTML property
       token: undefined;
 
       constructor() {
         super();
+        this.eventFeaturesFilter ??= [];
+        this.eventFeaturesLayers ??= [];
+
         this._eventListenerMap = new Map();
         this._eventRegistrationQueue = {};
         this._refreshExpiredTiles = true;
@@ -226,43 +229,78 @@ export function registerCustomElement(settings: Options) {
           const wrapped: Listener<Extract<T, MapEventType>> = (e) =>
             fn(
               new Proxy(e, {
-                has: (obj, prop) =>
-                  prop in obj ||
-                  (typeof prop === "string" &&
-                    ((prop === "features" && obj["point"]) ||
-                      (prop === "perPointFeatures" && obj["points"]) ||
-                      ((prop.slice(0, 2) === "is" ||
-                        prop.slice(0, 3) === "get") &&
-                        prop in this._map &&
-                        typeof this._map[prop] === "function"))),
+                has: (obj, prop) => {
+                  if (prop in obj) {
+                    return true;
+                  }
+                  if (typeof prop !== "string") {
+                    return false;
+                  }
+
+                  if (obj instanceof MapMouseEvent) {
+                    if (prop === "features" && "point" in obj) {
+                      return true;
+                    }
+                  }
+                  if (obj instanceof MapTouchEvent) {
+                    if (prop === "perPointFeatures" && "points" in obj) {
+                      return true;
+                    }
+                  }
+
+                  if (!this._map) {
+                    return false;
+                  }
+
+                  return (
+                    (prop.startsWith("is") || prop.startsWith("get")) &&
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    typeof (this._map as any)[prop] === "function"
+                  );
+                },
                 get: (obj, prop) => {
                   if (prop in obj) {
-                    return obj[prop];
-                  } else if (prop === "features" && obj["point"]) {
-                    return this._map.queryRenderedFeatures(obj["point"], {
-                      layers: this.eventFeaturesLayers,
-                      filter: this.eventFeaturesFilter,
-                    });
-                  } else if (
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+                    return (obj as any)[prop];
+                  }
+                  if (typeof prop !== "string") {
+                    return undefined;
+                  }
+
+                  if (prop === "features" && "point" in obj) {
+                    return this._map
+                      ? this._map.queryRenderedFeatures(obj["point"], {
+                          layers: this.eventFeaturesLayers,
+                          filter: this.eventFeaturesFilter,
+                        })
+                      : [];
+                  }
+                  if (
                     prop === "perPointFeatures" &&
-                    obj["points"] &&
+                    "points" in obj &&
                     Array.isArray(obj["points"])
                   ) {
                     return obj["points"].map(
                       (point: PointLike | [PointLike, PointLike]) =>
-                        this._map.queryRenderedFeatures(point, {
-                          layers: this.eventFeaturesLayers,
-                          filter: this.eventFeaturesFilter,
-                        }),
+                        this._map
+                          ? this._map.queryRenderedFeatures(point, {
+                              layers: this.eventFeaturesLayers,
+                              filter: this.eventFeaturesFilter,
+                            })
+                          : [],
                     );
-                  } else if (
-                    typeof prop === "string" &&
-                    (prop.slice(0, 2) === "is" || prop.slice(0, 3) === "get") &&
+                  }
+
+                  if (
+                    this._map &&
+                    (prop.startsWith("is") || prop.startsWith("get")) &&
                     prop in this._map &&
-                    typeof this._map[prop] === "function"
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                    typeof (this._map as any)[prop] === "function"
                   ) {
                     try {
-                      return this._map[prop]();
+                      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                      return (this._map as any)[prop]();
                     } catch (_) {
                       return undefined;
                     }
@@ -286,13 +324,12 @@ export function registerCustomElement(settings: Options) {
         fn: Listener<Extract<T, MapEventType>>,
       ): this {
         if (this._map) {
-          const wrapped: Listener<Extract<T, MapEventType>> =
-            this._eventListenerMap.get(fn);
+          const wrapped = this._eventListenerMap.get(fn) as typeof fn;
           this._eventListenerMap.delete(fn);
           this._map.off(type, wrapped);
         } else {
           const queue = this._eventRegistrationQueue[type] || [];
-          const index = queue.findIndex(fn);
+          const index = queue.findIndex(fn as Listener<any>);
           if (index >= 0) {
             queue.splice(index, 1);
           }
@@ -327,13 +364,15 @@ export function registerCustomElement(settings: Options) {
         }
         this._map = new mapboxgl.Map(mapOptions);
 
-        Object.entries(this._eventRegistrationQueue).map(
-          ([type, listeners]: [MapEventType, Listener<MapEventType>[]]) => {
-            listeners.forEach((listener) => {
-              this.addEventListener(type, listener);
-            });
-          },
-        );
+        const entries = Object.entries(this._eventRegistrationQueue) as [
+          MapEventType,
+          Listener<any>[],
+        ][];
+        for (const [type, listeners] of entries) {
+          listeners.forEach((listener) => {
+            this.addEventListener(type, listener);
+          });
+        }
         this._eventRegistrationQueue = {};
         options.onMount(this._map, this);
         if (commandRegistry[this.id]) {
@@ -370,10 +409,14 @@ export function registerCustomElement(settings: Options) {
       }
 
       _upgradeProperty(prop: string) {
-        if (this.hasOwnProperty(prop)) {
-          const value = this[prop];
-          delete this[prop];
-          this[prop] = value;
+        if (Object.hasOwn(this, prop)) {
+          /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
+          const _this = this as any;
+
+          const value = _this[prop];
+          delete _this[prop];
+          _this[prop] = value;
+          /* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access */
         }
       }
 
@@ -416,8 +459,10 @@ type ElmApp = {
   ports?: Record<string, Port>;
 };
 type Port = {
-  send?: (data: unknown) => void;
-  subscribe?: (callback: (command: PortCommand) => unknown) => void;
+  readonly send: (data: unknown) => void | undefined;
+  readonly subscribe: (
+    callback: (command: PortCommand) => unknown,
+  ) => void | undefined;
 };
 type RegisterPortsOptions = {
   outgoingPort: string;
@@ -426,7 +471,7 @@ type RegisterPortsOptions = {
 };
 
 export function registerPorts(
-  elmApp: ElmApp,
+  elmApp: Readonly<ElmApp>,
   settings: Partial<RegisterPortsOptions> = {},
 ) {
   const options: RegisterPortsOptions = Object.assign(
@@ -440,9 +485,28 @@ export function registerPorts(
     settings,
   );
 
-  if (elmApp.ports && elmApp.ports[options.outgoingPort]) {
-    function processOptions(opts: EasingOptions) {
-      /* AJD: Looks like opt.easing has changed to "always a function".
+  const outgoingPort = elmApp.ports?.[options.outgoingPort];
+  const incomingPort = elmApp.ports?.[options.incomingPort];
+
+  if (!outgoingPort?.subscribe) {
+    console.warn(
+      `Expected Elm App to expose ${
+        options.outgoingPort
+      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
+    );
+    return elmApp;
+  }
+  if (!incomingPort || !incomingPort.send) {
+    console.warn(
+      `Expected Elm App to expose ${
+        options.incomingPort
+      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
+    );
+    return elmApp;
+  }
+
+  function processOptions(opts: EasingOptions) {
+    /* AJD: Looks like opt.easing has changed to "always a function".
        * Not sure if we can still do the logic below!
       if (opts.easing) {
         return Object.assign({}, opts, {
@@ -450,91 +514,85 @@ export function registerPorts(
         });
       }
       */
-      return opts;
-    }
-
-    function waitForMap(target: string, cb: (map: mapboxgl.Map) => void) {
-      const el = document.getElementById(target);
-      // Unable to access actual MapboxMap type from this scope
-      type MapboxMap = HTMLElement & { _map: mapboxgl.Map };
-      if (el && (el as MapboxMap)._map) {
-        // AJD: Fixed from cb(el.map)
-        cb((el as MapboxMap)._map);
-      } else {
-        let queue = commandRegistry[target];
-        if (!queue) queue = commandRegistry[target] = [];
-        queue.push(cb);
-      }
-    }
-
-    elmApp.ports[options.outgoingPort].subscribe!((event) => {
-      waitForMap(event.target, function (map) {
-        switch (event.command) {
-          case "resize":
-            return map.resize();
-
-          case "fitBounds":
-            return map.fitBounds(event.bounds, processOptions(event.options));
-
-          case "panBy":
-            return map.panBy(event.offset, processOptions(event.options));
-
-          case "panTo":
-            return map.panTo(event.location, processOptions(event.options));
-
-          case "zoomTo":
-            return map.zoomTo(event.zoom, processOptions(event.options));
-
-          case "zoomIn":
-            return map.zoomIn(processOptions(event.options));
-
-          case "zoomOut":
-            return map.zoomOut(processOptions(event.options));
-
-          case "rotateTo":
-            return map.rotateTo(event.bearing, processOptions(event.options));
-
-          case "jumpTo":
-            return map.jumpTo(processOptions(event.options));
-
-          case "easeTo":
-            return map.easeTo(processOptions(event.options));
-
-          case "flyTo":
-            return map.flyTo(processOptions(event.options));
-
-          case "stop":
-            return map.stop();
-
-          case "setRTLTextPlugin":
-            return mapboxgl.setRTLTextPlugin(event.url);
-
-          case "getBounds":
-            return elmApp.ports[options.incomingPort].send({
-              type: "getBounds",
-              id: event.requestId,
-              bounds: map.getBounds().toArray(),
-            });
-
-          case "queryRenderedFeatures":
-            return elmApp.ports[options.incomingPort].send({
-              type: "queryRenderedFeatures",
-              id: event.requestId,
-              features: event.geometry
-                ? map.queryRenderedFeatures(event.geometry, event.options)
-                : map.queryRenderedFeatures(event.options),
-            });
-        }
-      });
-    });
-  } else {
-    console.warn(
-      `Expected Elm App to expose ${
-        options.outgoingPort
-      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
-    );
+    return opts;
   }
 
+  function waitForMap(target: string, cb: (map: mapboxgl.Map) => void) {
+    const el = document.getElementById(target);
+    // Unable to access actual MapboxMap type from this scope
+    type MapboxMap = HTMLElement & { _map: mapboxgl.Map };
+    if (el && (el as MapboxMap)._map) {
+      // AJD: Fixed from cb(el.map)
+      cb((el as MapboxMap)._map);
+    } else {
+      let queue = commandRegistry[target];
+      if (!queue) queue = commandRegistry[target] = [];
+      queue.push(cb);
+    }
+  }
+
+  outgoingPort.subscribe((event) => {
+    waitForMap(event.target, function (map) {
+      switch (event.command) {
+        case "resize":
+          return map.resize();
+
+        case "fitBounds":
+          return map.fitBounds(event.bounds, processOptions(event.options));
+
+        case "panBy":
+          return map.panBy(event.offset, processOptions(event.options));
+
+        case "panTo":
+          return map.panTo(event.location, processOptions(event.options));
+
+        case "zoomTo":
+          return map.zoomTo(event.zoom, processOptions(event.options));
+
+        case "zoomIn":
+          return map.zoomIn(processOptions(event.options));
+
+        case "zoomOut":
+          return map.zoomOut(processOptions(event.options));
+
+        case "rotateTo":
+          return map.rotateTo(event.bearing, processOptions(event.options));
+
+        case "jumpTo":
+          return map.jumpTo(processOptions(event.options));
+
+        case "easeTo":
+          return map.easeTo(processOptions(event.options));
+
+        case "flyTo":
+          return map.flyTo(processOptions(event.options));
+
+        case "stop":
+          return map.stop();
+
+        case "setRTLTextPlugin":
+          return mapboxgl.setRTLTextPlugin(event.url);
+
+        case "getBounds":
+          return incomingPort.send({
+            type: "getBounds",
+            id: event.requestId,
+            // `Map#getBounds` is typed to return `LngLatBounds | null`, but it
+            // delegates to `Transform#getBounds, typed to return `LngLatBounds`.
+            bounds: map.getBounds()!.toArray(),
+          });
+
+        case "queryRenderedFeatures":
+          return incomingPort.send({
+            type: "queryRenderedFeatures",
+            id: event.requestId,
+            features: event.geometry
+              ? map.queryRenderedFeatures(event.geometry, event.options)
+              : map.queryRenderedFeatures(event.options),
+          });
+      }
+    });
+  });
   return elmApp;
 }
 

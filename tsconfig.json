@@ -5,6 +5,7 @@
     "checkJs": true,
     "module": "preserve",
     "moduleResolution": "bundler",
+    "strict": true,
     "target": "es2022",
     "declaration": true,
     "declarationDir": "dist",
