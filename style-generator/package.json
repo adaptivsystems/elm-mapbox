@@ -19,7 +19,7 @@
     "codemirror": "^5.42.2"
   },
   "devDependencies": {
-    "vite": "^6.2.5",
+    "vite": "^6.3.4",
     "vite-plugin-elm-watch": "^1.4.2"
   }
 }
