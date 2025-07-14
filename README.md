@@ -55,11 +55,17 @@ To get going, install the Elm package, the accompanying npm library, and the
 
     mkdir -p vendor
     git clone https://github.com/adaptivsystems/elm-mapbox vendor/elm-mapbox
-    rm -rf vendor/elm-mapbox/.git
+    npm -C vendor/elm-mapbox install
+    npm -C vendor/elm-mapbox run build
     npm add vendor/elm-mapbox mapbox-gl
 
     # Then you'll need to add "vendor/elm-mapbox/src" to your app's elm.json
     # `source-directories` array.
+
+    # Unless you want to add as a git submodule, you might want to delete
+    # the repository's .git folder so you can add its contents to your own
+    # project's git repository.
+    rm -rf vendor/elm-mapbox/.git
 
     # Eventually, we plan to make these commands work:
     # elm install adaptivsystems/elm-mapbox
