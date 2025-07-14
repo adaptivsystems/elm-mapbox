@@ -1,4 +1,4 @@
-module LngLat exposing (LngLat, decodeFromObject, decodeFromPair, encodeAsObject, encodeAsPair, map, toString)
+module LngLat exposing (LngLat, encodeAsPair, encodeAsObject, decodeFromPair, decodeFromObject, map, toString)
 
 {-| Encodes geographic position.
 
@@ -79,6 +79,7 @@ toDMS angle pos neg =
         prefix =
             if angle > 0 then
                 pos
+
             else
                 neg
     in
