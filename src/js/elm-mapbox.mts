@@ -7,8 +7,6 @@ import mapboxgl, {
   LngLatLike,
   MapEventOf,
   MapEventType,
-  MapMouseEvent,
-  MapTouchEvent,
   PointLike,
   StyleSpecification,
 } from "mapbox-gl";
@@ -64,19 +62,19 @@ export function registerCustomElement(settings: Options) {
       private _style?: StyleSpecification | string;
       private _zoom?: number;
 
-      interactive: boolean; // ONLY SET TO true
-
-      // These are *potentially* set via HTML properties
-      eventFeaturesFilter: FilterSpecification;
-      eventFeaturesLayers: string[];
+      // These are *potentially* set via HTML properties.
+      //
+      // `eventFeaturesFilter` and `eventFeaturesLayers` must be UNDEFINED if
+      // they aren't used, as we pass them to `queryRenderedFeatures()`, which
+      // won't allow these to be empty arrays.
+      eventFeaturesFilter?: FilterSpecification;
+      eventFeaturesLayers?: string[];
+      interactive: boolean;
       logoPosition?: mapboxgl.ControlPosition;
       token: undefined;
 
       constructor() {
         super();
-        this.eventFeaturesFilter ??= [];
-        this.eventFeaturesLayers ??= [];
-
         this._eventListenerMap = new Map();
         this._eventRegistrationQueue = {};
         this._refreshExpiredTiles = true;
@@ -222,99 +220,93 @@ export function registerCustomElement(settings: Options) {
         type: T,
         fn: Listener<Extract<T, MapEventType>>,
       ): this {
-        if (this._map) {
-          // Wrap the listener--which will likely be an Elm function--in order
-          // to sneakily give it a proxy object so we can get information it
-          // needs from the map object.
-          const wrapped: Listener<Extract<T, MapEventType>> = (e) =>
-            fn(
-              new Proxy(e, {
-                has: (obj, prop) => {
-                  if (prop in obj) {
-                    return true;
-                  }
-                  if (typeof prop !== "string") {
-                    return false;
-                  }
+        // Wrap the listener--which will likely be an Elm function--in order
+        // to sneakily give it a proxy object so we can get information it
+        // needs from the map object.
+        const wrapped: Listener<Extract<T, MapEventType>> = (e) =>
+          fn(
+            new Proxy(e, {
+              has: (obj, prop) => {
+                if (prop in obj) {
+                  return true;
+                }
+                if (typeof prop !== "string") {
+                  return false;
+                }
+                if (prop === "features" && "point" in obj) {
+                  return true;
+                }
+                if (prop === "perPointFeatures" && "points" in obj) {
+                  return true;
+                }
 
-                  if (obj instanceof MapMouseEvent) {
-                    if (prop === "features" && "point" in obj) {
-                      return true;
-                    }
-                  }
-                  if (obj instanceof MapTouchEvent) {
-                    if (prop === "perPointFeatures" && "points" in obj) {
-                      return true;
-                    }
-                  }
+                if (!this._map) {
+                  return false;
+                }
+                return (
+                  (prop.startsWith("is") || prop.startsWith("get")) &&
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  typeof (this._map as any)[prop] === "function"
+                );
+              },
+              get: (obj, prop) => {
+                if (prop in obj) {
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+                  return (obj as any)[prop];
+                }
+                if (typeof prop !== "string") {
+                  return undefined;
+                }
 
-                  if (!this._map) {
-                    return false;
-                  }
-
-                  return (
-                    (prop.startsWith("is") || prop.startsWith("get")) &&
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    typeof (this._map as any)[prop] === "function"
+                if (prop === "features" && "point" in obj) {
+                  return this._map
+                    ? this._map.queryRenderedFeatures(obj["point"], {
+                        layers: this.eventFeaturesLayers,
+                        filter: this.eventFeaturesFilter,
+                      })
+                    : [];
+                }
+                if (
+                  prop === "perPointFeatures" &&
+                  "points" in obj &&
+                  Array.isArray(obj["points"])
+                ) {
+                  return obj["points"].map(
+                    (point: PointLike | [PointLike, PointLike]) =>
+                      this._map
+                        ? this._map.queryRenderedFeatures(point, {
+                            layers: this.eventFeaturesLayers,
+                            filter: this.eventFeaturesFilter,
+                          })
+                        : [],
                   );
-                },
-                get: (obj, prop) => {
-                  if (prop in obj) {
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-                    return (obj as any)[prop];
-                  }
-                  if (typeof prop !== "string") {
+                }
+
+                if (
+                  this._map &&
+                  (prop.startsWith("is") || prop.startsWith("get")) &&
+                  prop in this._map &&
+                  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                  typeof (this._map as any)[prop] === "function"
+                ) {
+                  try {
+                    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+                    return (this._map as any)[prop]();
+                  } catch (_) {
                     return undefined;
                   }
-
-                  if (prop === "features" && "point" in obj) {
-                    return this._map
-                      ? this._map.queryRenderedFeatures(obj["point"], {
-                          layers: this.eventFeaturesLayers,
-                          filter: this.eventFeaturesFilter,
-                        })
-                      : [];
-                  }
-                  if (
-                    prop === "perPointFeatures" &&
-                    "points" in obj &&
-                    Array.isArray(obj["points"])
-                  ) {
-                    return obj["points"].map(
-                      (point: PointLike | [PointLike, PointLike]) =>
-                        this._map
-                          ? this._map.queryRenderedFeatures(point, {
-                              layers: this.eventFeaturesLayers,
-                              filter: this.eventFeaturesFilter,
-                            })
-                          : [],
-                    );
-                  }
-
-                  if (
-                    this._map &&
-                    (prop.startsWith("is") || prop.startsWith("get")) &&
-                    prop in this._map &&
-                    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                    typeof (this._map as any)[prop] === "function"
-                  ) {
-                    try {
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-                      return (this._map as any)[prop]();
-                    } catch (_) {
-                      return undefined;
-                    }
-                  }
-                  return undefined;
-                },
-              }),
-            );
+                }
+                return undefined;
+              },
+            }),
+          );
+        if (this._map) {
           this._eventListenerMap.set(fn, wrapped);
           this._map.on(type, wrapped);
         } else {
           this._eventRegistrationQueue[type] =
             this._eventRegistrationQueue[type] || [];
-          this._eventRegistrationQueue[type].push(fn);
+          this._eventRegistrationQueue[type].push(wrapped);
         }
         return this;
       }
@@ -375,21 +367,20 @@ export function registerCustomElement(settings: Options) {
         }
         this._eventRegistrationQueue = {};
         options.onMount(this._map, this);
-        if (commandRegistry[this.id]) {
-          this._map.on("load", () => {
+        this._map.once("load", () => {
+          // Set a data attribute that can be targeted in E2E tests.
+          this.dataset["mapLoaded"] = "";
+          if (commandRegistry[this.id]) {
             let cmd: undefined | ((map: mapboxgl.Map) => void);
             while ((cmd = commandRegistry[this.id].shift())) {
               cmd(this._map!);
             }
-          });
-        }
+          }
+        });
         return this._map;
       }
 
       connectedCallback() {
-        if (this.token) {
-          mapboxgl.accessToken = this.token;
-        }
         this.style.display = "block";
         this.style.width = "100%";
         this.style.height = "100%";
@@ -405,7 +396,15 @@ export function registerCustomElement(settings: Options) {
         this._upgradeProperty("pitch");
         this._upgradeProperty("featureState");
 
-        this._map = this._createMapInstance();
+        // Catch errors so a Mapbox crash won't affect Elm's VDOM update.
+        try {
+          if (this.token) {
+            mapboxgl.accessToken = this.token;
+          }
+          this._map = this._createMapInstance();
+        } catch (err) {
+          console.error("Error thrown during Map creation", err);
+        }
       }
 
       _upgradeProperty(prop: string) {
@@ -421,8 +420,13 @@ export function registerCustomElement(settings: Options) {
       }
 
       disconnectedCallback() {
-        this._map?.remove();
-        delete this._map;
+        // Catch errors so a Mapbox crash won't affect Elm's VDOM update.
+        try {
+          this._map?.remove();
+          this._map = undefined;
+        } catch (err) {
+          console.error("Error thrown during Map removal", err);
+        }
       }
     },
   );
@@ -467,7 +471,9 @@ type Port = {
 type RegisterPortsOptions = {
   outgoingPort: string;
   incomingPort: string;
-  easingFunctions: Record<string, (t: number) => number>;
+  // easingFunctions currently disabled until we figure out how to properly
+  // support it with modern mapbox-gl.
+  // easingFunctions: Record<string, (t: number) => number>;
 };
 
 export function registerPorts(
@@ -478,9 +484,9 @@ export function registerPorts(
     {
       outgoingPort: "elmMapboxOutgoing",
       incomingPort: "elmMapboxIncoming",
-      easingFunctions: {
-        linear: (t: number) => t,
-      },
+      // easingFunctions: {
+      //   linear: (t: number) => t,
+      // },
     },
     settings,
   );
@@ -492,7 +498,7 @@ export function registerPorts(
     console.warn(
       `Expected Elm App to expose ${
         options.outgoingPort
-      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
+      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/main/examples/MapCommands.elm to your project and import it from your Main file.`,
     );
     return elmApp;
   }
@@ -500,7 +506,7 @@ export function registerPorts(
     console.warn(
       `Expected Elm App to expose ${
         options.incomingPort
-      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/master/examples/MapCommands.elm to your project and import it from your Main file.`,
+      } port. Please add https://github.com/adaptivsystems/elm-mapbox/blob/main/examples/MapCommands.elm to your project and import it from your Main file.`,
     );
     return elmApp;
   }
