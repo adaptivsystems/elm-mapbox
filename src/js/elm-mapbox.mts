@@ -460,10 +460,13 @@ type QueryPortCommand = { target: string } & (
 type PortCommand = AnimationPortCommand | QueryPortCommand;
 
 type ElmApp = {
-  ports?: Record<string, Port>;
+  ports?: Record<string, InPort | OutPort>;
 };
-type Port = {
+// "In" and "out" are from Elm's perspective.
+type InPort = {
   readonly send: (data: unknown) => void | undefined;
+};
+type OutPort = {
   readonly subscribe: (
     callback: (command: PortCommand) => unknown,
   ) => void | undefined;
@@ -491,8 +494,12 @@ export function registerPorts(
     settings,
   );
 
-  const outgoingPort = elmApp.ports?.[options.outgoingPort];
-  const incomingPort = elmApp.ports?.[options.incomingPort];
+  const outgoingPort = elmApp.ports?.[options.outgoingPort] as
+    | OutPort
+    | undefined;
+  const incomingPort = elmApp.ports?.[options.incomingPort] as
+    | InPort
+    | undefined;
 
   if (!outgoingPort?.subscribe) {
     console.warn(
